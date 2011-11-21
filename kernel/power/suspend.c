@@ -109,7 +109,6 @@ static int suspend_prepare(void)
 	if (!error)
 		return 0;
 
-	suspend_thaw_processes();
 	usermodehelper_enable();
  Finish:
 	pm_notifier_call_chain(PM_POST_SUSPEND);
