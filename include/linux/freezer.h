@@ -49,6 +49,7 @@ static inline bool try_to_freeze(void)
 }
 
 extern bool freeze_task(struct task_struct *p);
+extern bool set_freezable(void);
 
 #ifdef CONFIG_CGROUP_FREEZER
 extern bool cgroup_freezing(struct task_struct *task);
@@ -101,23 +102,6 @@ static inline void freezer_count(void)
 static inline int freezer_should_skip(struct task_struct *p)
 {
 	return !!(p->flags & PF_FREEZER_SKIP);
-}
-
-/*
- * Tell the freezer that the current task should be frozen by it
- */
-static inline void set_freezable(void)
-{
-	current->flags &= ~PF_NOFREEZE;
-}
-
-/*
- * Tell the freezer that the current task should be frozen by it and that it
- * should send a fake signal to the task to freeze it.
- */
-static inline void set_freezable_with_signal(void)
-{
-	current->flags &= ~(PF_NOFREEZE | PF_FREEZER_NOSIG);
 }
 
 /*
@@ -175,7 +159,6 @@ static inline void freezer_do_not_count(void) {}
 static inline void freezer_count(void) {}
 static inline int freezer_should_skip(struct task_struct *p) { return 0; }
 static inline void set_freezable(void) {}
-static inline void set_freezable_with_signal(void) {}
 
 #define wait_event_freezable(wq, condition)				\
 		wait_event_interruptible(wq, condition)
