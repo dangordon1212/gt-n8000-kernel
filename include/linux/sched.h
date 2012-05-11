@@ -143,7 +143,6 @@ extern unsigned long nr_iowait(void);
 extern unsigned long nr_iowait_cpu(int cpu);
 extern unsigned long this_cpu_load(void);
 
-
 extern void calc_global_load(unsigned long ticks);
 
 extern unsigned long get_parent_ip(unsigned long addr);
@@ -1126,6 +1125,7 @@ struct sched_class {
 	void (*task_move_group) (struct task_struct *p, int on_rq);
 #endif
 };
+extern void update_idle_cpu_load(struct rq *this_rq);
 
 struct load_weight {
 	unsigned long weight, inv_weight;
