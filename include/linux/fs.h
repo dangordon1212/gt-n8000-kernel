@@ -2481,6 +2481,8 @@ extern int generic_file_fsync(struct file *, int);
 
 extern int generic_check_addressable(unsigned, u64);
 
+extern void sync_filesystems(int wait);
+
 #ifdef CONFIG_MIGRATION
 extern int buffer_migrate_page(struct address_space *,
 				struct page *, struct page *,

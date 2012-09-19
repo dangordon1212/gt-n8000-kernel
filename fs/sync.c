@@ -31,6 +31,8 @@ module_param(datasyncs_allowed, int, 0444);
 module_param(fsyncs_attempted, int, 0444);
 module_param(fsyncs_allowed, int, 0444);
 
+extern bool early_suspend_active;
+
 #define VALID_FLAGS (SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE| \
 			SYNC_FILE_RANGE_WAIT_AFTER)
 
@@ -100,7 +102,7 @@ static void sync_one_sb(struct super_block *sb, void *arg)
  * Sync all the data for all the filesystems (called by sys_sync() and
  * emergency sync)
  */
-static void sync_filesystems(int wait)
+void sync_filesystems(int wait)
 {
 	iterate_supers(sync_one_sb, &wait);
 }
@@ -142,6 +144,11 @@ void emergency_sync(void)
 	}
 }
 
+static int inline disable_fsync(void)
+{
+	return early_suspend_active ? 0 : fsync_disabled;
+};
+
 /*
  * sync a single super
  */
@@ -153,7 +160,7 @@ SYSCALL_DEFINE1(syncfs, int, fd)
 	int fput_needed;
 
 	fsyncs_attempted++;
-	if (fsync_disabled)
+	if (disable_fsync())
 		return 0;
 	fsyncs_allowed++;
 
@@ -191,8 +198,8 @@ int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 		goto out;
 	}
 
-	if (fsync_disabled)
-		if (!datasync || (fsync_disabled != 2))
+	if (disable_fsync())
+		if (!datasync || (disable_fsync() != 2))
 			return 0;
 
 	if (datasync)
@@ -242,8 +249,8 @@ static int do_fsync(unsigned int fd, int datasync)
 	else
 		fsyncs_attempted++;
 
-	if (fsync_disabled)
-		if (!datasync || (fsync_disabled != 2))
+	if (disable_fsync())
+		if (!datasync || (disable_fsync() != 2))
 			return 0;
 
 	file = fget_light(fd, &fput_needed);
@@ -275,7 +282,7 @@ SYSCALL_DEFINE1(fdatasync, unsigned int, fd)
 int generic_write_sync(struct file *file, loff_t pos, loff_t count)
 {
 	fsyncs_attempted++;
-	if (fsync_disabled)
+	if (disable_fsync())
 		return 0;
 
 	if (!(file->f_flags & O_DSYNC) && !IS_SYNC(file->f_mapping->host))
@@ -345,7 +352,7 @@ SYSCALL_DEFINE(sync_file_range)(int fd, loff_t offset, loff_t nbytes,
 	umode_t i_mode;
 
 	fsyncs_attempted++;
-	if (fsync_disabled)
+	if (disable_fsync())
 		return 0;
 	fsyncs_allowed++;
 
