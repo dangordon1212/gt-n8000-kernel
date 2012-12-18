@@ -62,7 +62,7 @@ int cpuidle_play_dead(void)
 	struct cpuidle_device *dev = __this_cpu_read(cpuidle_devices);
 	struct cpuidle_driver *drv = cpuidle_get_driver();
 	int i, dead_state = -1;
-	int power_usage = -1;
+	int power_usage = INT_MAX;
 
 	/* Find lowest-power state that supports long-term idle */
 	for (i = CPUIDLE_DRIVER_STATE_START; i < drv->state_count; i++) {
