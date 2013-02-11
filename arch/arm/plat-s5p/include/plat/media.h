@@ -16,6 +16,13 @@
 #include <linux/types.h>
 #include <asm/setup.h>
 
+#ifdef CONFIG_CMA
+#include <linux/cma.h>
+void s5p_cma_region_reserve(struct cma_region *regions_normal,
+			      struct cma_region *regions_secure,
+			      size_t align_secure, const char *map);
+#else
+
 struct s5p_media_device {
 	u32		id;
 	const char	*name;
@@ -28,7 +35,6 @@ extern struct meminfo meminfo;
 extern dma_addr_t s5p_get_media_memory_bank(int dev_id, int bank);
 extern size_t s5p_get_media_memsize_bank(int dev_id, int bank);
 extern dma_addr_t s5p_get_media_membase_bank(int bank);
-extern void s5p_reserve_bootmem(struct s5p_media_device *mdevs, int nr_mdevs, size_t boundary);
-
+extern void s5p_reserve_mem(size_t boundary);
+#endif /* CONFIG_CMA */
 #endif
-

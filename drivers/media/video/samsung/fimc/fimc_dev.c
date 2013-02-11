@@ -22,36 +22,62 @@
 #include <linux/irq.h>
 #include <linux/mm.h>
 #include <linux/interrupt.h>
-#include <media/v4l2-device.h>
 #include <linux/io.h>
 #include <linux/memory.h>
 #include <linux/ctype.h>
-#include <linux/platform_device.h>
-#include <linux/regulator/consumer.h>
-#include <plat/clock.h>
-#include <plat/media.h>
-#include <mach/media.h>
-#include <plat/fimc.h>
-#include <linux/videodev2_samsung.h>
+#include <linux/workqueue.h>
+#include <linux/pm_runtime.h>
+#include <media/v4l2-device.h>
+#include <linux/videodev2_exynos_media.h>
+#include <linux/videodev2_exynos_camera.h>
 #include <linux/delay.h>
-#include <plat/regs-fimc.h>
+#include <linux/cma.h>
+#include <linux/dma-mapping.h>
+#include <plat/fimc.h>
+#include <plat/clock.h>
+#include <mach/regs-pmu.h>
+#include <linux/cpufreq.h>
+#include <mach/cpufreq.h>
 
 #include "fimc.h"
 
+char buf[32];
 struct fimc_global *fimc_dev;
+
+#ifndef CONFIG_VIDEO_FIMC_MIPI
+int s3c_csis_get_pkt(int csis_id, void *pktdata) {}
+#endif
+
+void s3c_fimc_irq_work(struct work_struct *work)
+{
+	struct fimc_control *ctrl = container_of(work, struct fimc_control,
+			work_struct);
+	int ret, irq_cnt;
+
+	irq_cnt = atomic_read(&ctrl->irq_cnt);
+	if (irq_cnt > 0) {
+		do {
+			ret = atomic_dec_and_test((atomic_t *)&ctrl->irq_cnt);
+			if (atomic_read(&ctrl->dev->power.usage_count) > 0)
+				pm_runtime_put_sync(ctrl->dev);
+		} while (ret != 1);
+	}
+}
 
 int fimc_dma_alloc(struct fimc_control *ctrl, struct fimc_buf_set *bs,
 							int i, int align)
 {
 	dma_addr_t end, *curr;
 
-	mutex_lock(&ctrl->alloc_lock);
+	mutex_lock(&ctrl->lock);
 
 	end = ctrl->mem.base + ctrl->mem.size;
 	curr = &ctrl->mem.curr;
 
-	if (!bs->length[i])
+	if (!bs->length[i]) {
+		mutex_unlock(&ctrl->lock);
 		return -EINVAL;
+	}
 
 	if (!align) {
 		if (*curr + bs->length[i] > end) {
@@ -62,16 +88,16 @@ int fimc_dma_alloc(struct fimc_control *ctrl, struct fimc_buf_set *bs,
 			*curr += bs->length[i];
 		}
 	} else {
-		if (ALIGN(*curr, align) + bs->length[i] > end)
+		if (ALIGN(*curr, align) + bs->length[i] > end) {
 			goto overflow;
-		else {
+		} else {
 			bs->base[i] = ALIGN(*curr, align);
 			bs->garbage[i] = ALIGN(*curr, align) - *curr;
 			*curr += (bs->length[i] + bs->garbage[i]);
 		}
 	}
 
-	mutex_unlock(&ctrl->alloc_lock);
+	mutex_unlock(&ctrl->lock);
 
 	return 0;
 
@@ -80,7 +106,7 @@ overflow:
 	bs->length[i] = 0;
 	bs->garbage[i] = 0;
 
-	mutex_unlock(&ctrl->alloc_lock);
+	mutex_unlock(&ctrl->lock);
 
 	return -ENOMEM;
 }
@@ -88,7 +114,7 @@ overflow:
 void fimc_dma_free(struct fimc_control *ctrl, struct fimc_buf_set *bs, int i)
 {
 	int total = bs->length[i] + bs->garbage[i];
-	mutex_lock(&ctrl->alloc_lock);
+	mutex_lock(&ctrl->lock);
 
 	if (bs->base[i]) {
 		if (ctrl->mem.curr - total >= ctrl->mem.base)
@@ -99,42 +125,7 @@ void fimc_dma_free(struct fimc_control *ctrl, struct fimc_buf_set *bs, int i)
 		bs->garbage[i] = 0;
 	}
 
-	mutex_unlock(&ctrl->alloc_lock);
-}
-
-void fimc_clk_en(struct fimc_control *ctrl, bool on)
-{
-	struct platform_device *pdev;
-	struct s3c_platform_fimc *pdata;
-	struct clk *lclk;
-
-	pdev = to_platform_device(ctrl->dev);
-	pdata = to_fimc_plat(ctrl->dev);
-	lclk = clk_get(&pdev->dev, pdata->lclk_name);
-
-	if (on) {
-		if (!lclk->usage) {
-			if (!ctrl->out)
-				fimc_info1("(%d) Clock %s(%d) enabled.\n",
-					ctrl->id, ctrl->clk->name,
-					ctrl->clk->id);
-
-			/* Turn on fimc power domain regulator */
-			regulator_enable(ctrl->regulator);
-			clk_enable(lclk);
-		}
-	} else {
-		while (lclk->usage > 0) {
-			if (!ctrl->out)
-				fimc_info1("(%d) Clock %s(%d) disabled.\n",
-					ctrl->id, ctrl->clk->name,
-					ctrl->clk->id);
-			clk_disable(lclk);
-			/* Turn off fimc power domain regulator */
-			regulator_disable(ctrl->regulator);
-		}
-	}
-
+	mutex_unlock(&ctrl->lock);
 }
 
 static inline u32 fimc_irq_out_single_buf(struct fimc_control *ctrl,
@@ -143,7 +134,7 @@ static inline u32 fimc_irq_out_single_buf(struct fimc_control *ctrl,
 	int ret = -1, ctx_num, next;
 	u32 wakeup = 1;
 
-	if (ctx->status == FIMC_READY_OFF) {
+	if (ctx->status == FIMC_READY_OFF || ctx->status == FIMC_STREAMOFF) {
 		ctrl->out->idxs.active.ctx = -1;
 		ctrl->out->idxs.active.idx = -1;
 		ctx->status = FIMC_STREAMOFF;
@@ -151,40 +142,106 @@ static inline u32 fimc_irq_out_single_buf(struct fimc_control *ctrl,
 
 		return wakeup;
 	}
-
 	ctx->status = FIMC_STREAMON_IDLE;
 
 	/* Attach done buffer to outgoing queue. */
 	ret = fimc_push_outq(ctrl, ctx, ctrl->out->idxs.active.idx);
 	if (ret < 0)
-		fimc_err("Failed: fimc_push_outq\n");
+		fimc_err("%s:Failed: fimc_push_outq\n", __func__);
 
 	/* Detach buffer from incomming queue. */
 	ret = fimc_pop_inq(ctrl, &ctx_num, &next);
 	if (ret == 0) {		/* There is a buffer in incomming queue. */
 		if (ctx_num != ctrl->out->last_ctx) {
-			ctx = &ctrl->out->ctx[ctx_num];
+			struct fimc_buf_set buf_set;	/* destination addr */
+			u32 format, width, height, y_size, c_size, rot;
+			int i, cfg;
+
+
+		    	ctx = &ctrl->out->ctx[ctx_num];
 			ctrl->out->last_ctx = ctx->ctx_num;
 			fimc_outdev_set_ctx_param(ctrl, ctx);
+
+			format = ctx->fbuf.fmt.pixelformat;
+			width = ctx->fbuf.fmt.width;
+			height = ctx->fbuf.fmt.height;
+			y_size = width * height;
+			c_size = y_size >> 2;
+			rot = ctx->rotate;
+
+			memset(&buf_set, 0x00, sizeof(buf_set));
+
+			switch (format) {
+				case V4L2_PIX_FMT_RGB32:
+				case V4L2_PIX_FMT_RGB565:
+				case V4L2_PIX_FMT_YUYV:
+					buf_set.base[FIMC_ADDR_Y] =
+						(dma_addr_t)ctx->fbuf.base;
+					break;
+				case V4L2_PIX_FMT_YUV420:
+					buf_set.base[FIMC_ADDR_Y] =
+						(dma_addr_t)ctx->fbuf.base;
+					buf_set.base[FIMC_ADDR_CB] =
+						buf_set.base[FIMC_ADDR_Y] + y_size;
+					buf_set.base[FIMC_ADDR_CR] =
+						buf_set.base[FIMC_ADDR_CB] + c_size;
+					break;
+				case V4L2_PIX_FMT_NV12:
+				case V4L2_PIX_FMT_NV21:
+					buf_set.base[FIMC_ADDR_Y] =
+						(dma_addr_t)ctx->fbuf.base;
+					buf_set.base[FIMC_ADDR_CB] =
+						buf_set.base[FIMC_ADDR_Y] + y_size;
+					break;
+				case V4L2_PIX_FMT_NV12M:
+					buf_set.base[FIMC_ADDR_Y] = (dma_addr_t)ctx->fbuf.base;
+					buf_set.base[FIMC_ADDR_CB] =
+						ALIGN(buf_set.base[FIMC_ADDR_Y] + y_size, PAGE_SIZE - 1);
+					break;
+				case V4L2_PIX_FMT_NV12T:
+					if (rot == 0 || rot == 180)
+						fimc_get_nv12t_size(width, height, &y_size, &c_size);
+					else
+						fimc_get_nv12t_size(height, width, &y_size, &c_size);
+					buf_set.base[FIMC_ADDR_Y] =
+						(dma_addr_t)ctx->fbuf.base;
+					buf_set.base[FIMC_ADDR_CB] =
+						buf_set.base[FIMC_ADDR_Y] + y_size;
+					break;
+				default:
+					fimc_err("%s: Invalid pixelformt : %d\n", __func__, format);
+					return -EINVAL;
+			}
+			cfg = fimc_hwget_output_buf_sequence(ctrl);
+
+			for (i = 0; i < FIMC_PHYBUFS; i++) {
+				if (check_bit(cfg, i))
+					fimc_hwset_output_address(ctrl, &buf_set, i);
+			}
 		}
 
 		fimc_outdev_set_src_addr(ctrl, ctx->src[next].base);
-
-		fimc_output_set_dst_addr(ctrl, ctx, next);
-
-		ret = fimc_outdev_start_camif(ctrl);
+		ret = fimc_output_set_dst_addr(ctrl, ctx, next);
 		if (ret < 0)
-			fimc_err("Fail: fimc_start_camif\n");
+			fimc_err("%s:Fail: fimc_output_set_dst_addr\n", __func__);
 
 		ctrl->out->idxs.active.ctx = ctx_num;
 		ctrl->out->idxs.active.idx = next;
+
 		ctx->status = FIMC_STREAMON;
 		ctrl->status = FIMC_STREAMON;
+
+		ret = fimc_outdev_start_camif(ctrl);
+		if (ret < 0)
+			fimc_err("%s:Fail: fimc_start_camif\n", __func__);
 	} else {	/* There is no buffer in incomming queue. */
 		ctrl->out->idxs.active.ctx = -1;
 		ctrl->out->idxs.active.idx = -1;
 		ctx->status = FIMC_STREAMON_IDLE;
 		ctrl->status = FIMC_STREAMON_IDLE;
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+		ctrl->out->last_ctx = -1;
+#endif
 	}
 
 	return wakeup;
@@ -206,11 +263,12 @@ static inline u32 fimc_irq_out_multi_buf(struct fimc_control *ctrl,
 
 		return wakeup;
 	}
+	ctx->status = FIMC_STREAMON_IDLE;
 
 	/* Attach done buffer to outgoing queue. */
 	ret = fimc_push_outq(ctrl, ctx, ctrl->out->idxs.active.idx);
 	if (ret < 0)
-		fimc_err("Failed: fimc_push_outq\n");
+		fimc_err("%s:Failed: fimc_push_outq\n", __func__);
 
 	/* Detach buffer from incomming queue. */
 	ret = fimc_pop_inq(ctrl, &ctx_num, &next);
@@ -222,22 +280,27 @@ static inline u32 fimc_irq_out_multi_buf(struct fimc_control *ctrl,
 		}
 
 		fimc_outdev_set_src_addr(ctrl, ctx->src[next].base);
-
-		fimc_output_set_dst_addr(ctrl, ctx, next);
-
-		ret = fimc_outdev_start_camif(ctrl);
+		ret = fimc_output_set_dst_addr(ctrl, ctx, next);
 		if (ret < 0)
-			fimc_err("Fail: fimc_start_camif\n");
+			fimc_err("%s:Fail: fimc_output_set_dst_addr\n", __func__);
 
 		ctrl->out->idxs.active.ctx = ctx_num;
 		ctrl->out->idxs.active.idx = next;
 		ctx->status = FIMC_STREAMON;
 		ctrl->status = FIMC_STREAMON;
+
+		ret = fimc_outdev_start_camif(ctrl);
+		if (ret < 0)
+			fimc_err("%s:Fail: fimc_start_camif\n", __func__);
+
 	} else {	/* There is no buffer in incomming queue. */
 		ctrl->out->idxs.active.ctx = -1;
 		ctrl->out->idxs.active.idx = -1;
 		ctx->status = FIMC_STREAMON_IDLE;
 		ctrl->status = FIMC_STREAMON_IDLE;
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+		ctrl->out->last_ctx = -1;
+#endif
 	}
 
 	return wakeup;
@@ -249,9 +312,11 @@ static inline u32 fimc_irq_out_dma(struct fimc_control *ctrl,
 	struct fimc_buf_set buf_set;
 	int idx = ctrl->out->idxs.active.idx;
 	int ret = -1, i, ctx_num, next;
+	int cfg;
 	u32 wakeup = 1;
 
-	if (ctx->status == FIMC_READY_OFF) {
+	if (ctx->status == FIMC_READY_OFF
+			|| ctx->status == FIMC_STREAMOFF) {
 		ctrl->out->idxs.active.ctx = -1;
 		ctrl->out->idxs.active.idx = -1;
 		ctx->status = FIMC_STREAMOFF;
@@ -265,19 +330,24 @@ static inline u32 fimc_irq_out_dma(struct fimc_control *ctrl,
 		fimc_err("Failed: fimc_push_outq\n");
 
 	if (ctx->overlay.mode == FIMC_OVLY_DMA_AUTO) {
-		struct s3cfb_window *win;
-		struct fb_info *fbinfo;
+		ret = s3cfb_direct_ioctl(ctrl->id, S3CFB_SET_WIN_ADDR,
+			(unsigned long)ctx->dst[idx].base[FIMC_ADDR_Y]);
 
-		fbinfo = registered_fb[ctx->overlay.fb_id];
-		win = (struct s3cfb_window *)fbinfo->par;
-
-		win->other_mem_addr = ctx->dst[idx].base[FIMC_ADDR_Y];
-
-		ret = fb_pan_display(fbinfo, &fbinfo->var);
 		if (ret < 0) {
-			fimc_err("%s: fb_pan_display fail (ret=%d)\n",
-					__func__, ret);
+			fimc_err("direct_ioctl(S3CFB_SET_WIN_ADDR) fail\n");
 			return -EINVAL;
+		}
+
+		if (ctrl->fb.is_enable == 0) {
+			ret = s3cfb_direct_ioctl(ctrl->id, S3CFB_SET_WIN_ON,
+							(unsigned long)NULL);
+			if (ret < 0) {
+				fimc_err("direct_ioctl(S3CFB_SET_WIN_ON)"\
+						" fail\n");
+				return -EINVAL;
+			}
+
+			ctrl->fb.is_enable = 1;
 		}
 	}
 
@@ -290,24 +360,32 @@ static inline u32 fimc_irq_out_dma(struct fimc_control *ctrl,
 		memset(&buf_set, 0x00, sizeof(buf_set));
 		buf_set.base[FIMC_ADDR_Y] = ctx->dst[next].base[FIMC_ADDR_Y];
 
-		for (i = 0; i < FIMC_PHYBUFS; i++)
-			fimc_hwset_output_address(ctrl, &buf_set, i);
+		cfg = fimc_hwget_output_buf_sequence(ctrl);
 
-		ret = fimc_outdev_start_camif(ctrl);
-		if (ret < 0)
-			fimc_err("Fail: fimc_start_camif\n");
+		for (i = 0; i < FIMC_PHYBUFS; i++) {
+			if (check_bit(cfg, i))
+				fimc_hwset_output_address(ctrl, &buf_set, i);
+		}
 
 		ctrl->out->idxs.active.ctx = ctx_num;
 		ctrl->out->idxs.active.idx = next;
 
 		ctx->status = FIMC_STREAMON;
 		ctrl->status = FIMC_STREAMON;
+
+		ret = fimc_outdev_start_camif(ctrl);
+		if (ret < 0)
+			fimc_err("Fail: fimc_start_camif\n");
+
 	} else {		/* There is no buffer in incomming queue. */
 		ctrl->out->idxs.active.ctx = -1;
 		ctrl->out->idxs.active.idx = -1;
 
 		ctx->status = FIMC_STREAMON_IDLE;
 		ctrl->status = FIMC_STREAMON_IDLE;
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+		ctrl->out->last_ctx = -1;
+#endif
 	}
 
 	return wakeup;
@@ -388,35 +466,193 @@ static inline void fimc_irq_out(struct fimc_control *ctrl)
 	case FIMC_OVLY_DMA_MANUAL:
 		wakeup = fimc_irq_out_dma(ctrl, ctx);
 		break;
+	case FIMC_OVLY_FIFO:
+		if (ctx->status != FIMC_READY_OFF)
+			wakeup = fimc_irq_out_fimd(ctrl, ctx);
+		break;
 	default:
 		fimc_err("[ctx=%d] fimc_irq_out: wrong overlay.mode (%d)\n",
 				ctx_num, ctx->overlay.mode);
 		break;
 	}
 
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+	atomic_inc((atomic_t *)&ctrl->irq_cnt);
+	queue_work(ctrl->fimc_irq_wq, &ctrl->work_struct);
+#endif
+
 	if (wakeup == 1)
 		wake_up(&ctrl->wq);
+}
+
+int fimc_hwget_number_of_bits(u32 framecnt_seq)
+{
+	u32 bits = 0;
+	while (framecnt_seq) {
+		framecnt_seq = framecnt_seq & (framecnt_seq - 1);
+		bits++;
+	}
+	return bits;
+}
+
+static int fimc_add_outgoing_queue(struct fimc_control *ctrl, int i)
+{
+	struct fimc_capinfo *cap = ctrl->cap;
+	struct fimc_buf_set *tmp_buf;
+	struct list_head *count;
+
+	spin_lock(&ctrl->outq_lock);
+
+	list_for_each(count, &cap->outgoing_q) {
+		tmp_buf = list_entry(count, struct fimc_buf_set, list);
+		if (tmp_buf->id == i) {
+			fimc_info1("%s: Exist id in outqueue\n", __func__);
+
+			spin_unlock(&ctrl->outq_lock);
+			return 0;
+		}
+	}
+	list_add_tail(&cap->bufs[i].list, &cap->outgoing_q);
+	spin_unlock(&ctrl->outq_lock);
+
+	return 0;
 }
 
 static inline void fimc_irq_cap(struct fimc_control *ctrl)
 {
 	struct fimc_capinfo *cap = ctrl->cap;
 	int pp;
-	u32 cfg;
+	int buf_index;
+	int framecnt_seq;
+	int available_bufnum;
+	struct v4l2_control is_ctrl;
+	u32 is_fn;
 
+	struct s3c_platform_fimc *pdata = to_fimc_plat(ctrl->dev);
+	is_ctrl.id = 0;
+	is_ctrl.value = 0;
+#ifdef DEBUG
+	static struct timeval curr_time, before_time;
+	if (!fimc_cam_use) {
+		do_gettimeofday(&curr_time);
+		printk(KERN_INFO "%s : time : %ld\n", __func__,
+				curr_time.tv_usec - before_time.tv_usec);
+		before_time.tv_usec = curr_time.tv_usec;
+	}
+#endif
 	fimc_hwset_clear_irq(ctrl);
 	if (fimc_hwget_overflow_state(ctrl)) {
-		/* s/w reset -- added for recovering module in ESD state*/
-		cfg = readl(ctrl->regs + S3C_CIGCTRL);
-		cfg |= (S3C_CIGCTRL_SWRST);
-		writel(cfg, ctrl->regs + S3C_CIGCTRL);
-		msleep(1);
-
-		cfg = readl(ctrl->regs + S3C_CIGCTRL);
-		cfg &= ~S3C_CIGCTRL_SWRST;
-		writel(cfg, ctrl->regs + S3C_CIGCTRL);
+		ctrl->restart = true;
+		return;
 	}
-	pp = ((fimc_hwget_frame_count(ctrl) + 2) % 4);
+
+	if (pdata->hw_ver >= 0x51) {
+		if (ctrl->is_frame_end_irq ||
+			ctrl->status == FIMC_BUFFER_STOP) {
+			pp = fimc_hwget_present_frame_count(ctrl);
+			ctrl->is_frame_end_irq = 0;
+		} else {
+			pp = fimc_hwget_before_frame_count(ctrl);
+		}
+
+		if (cap->cnt < 20) {
+			printk(KERN_INFO "%s[%d], fimc%d, cnt[%d]\n", __func__,
+							pp, ctrl->id, cap->cnt);
+			cap->cnt++;
+		}
+
+		fimc_info2("%s[%d]\n", __func__, pp);
+		if (pp == 0 || ctrl->restart) {
+			printk(KERN_INFO "%s[%d] SKIPPED\n", __func__, pp);
+			if (ctrl->cap->nr_bufs == 1) {
+				fimc_stop_capture(ctrl);
+				ctrl->is_frame_end_irq = 1;
+				ctrl->status = FIMC_BUFFER_STOP;
+			}
+			ctrl->restart = false;
+			return;
+		}
+
+		buf_index = pp - 1;
+		if (ctrl->cam->use_isp && fimc_cam_use) {
+			is_ctrl.id = V4L2_CID_IS_GET_FRAME_NUMBER;
+			is_ctrl.value = 0;
+			v4l2_subdev_call(ctrl->is.sd, core, g_ctrl, &is_ctrl);
+			is_fn = is_ctrl.value;
+			if (ctrl->is.frame_count == is_fn) {
+				is_ctrl.id = V4L2_CID_IS_GET_FRAME_VALID;
+				is_ctrl.value = 0;
+				v4l2_subdev_call(ctrl->is.sd, core, g_ctrl,
+					&is_ctrl);
+				if (is_ctrl.value) {
+					is_ctrl.id =
+						V4L2_CID_IS_SET_FRAME_VALID;
+					is_ctrl.value = 0;
+					v4l2_subdev_call(ctrl->is.sd,
+						core, s_ctrl, &is_ctrl);
+				} else {
+					fimc_info2(
+					"Invalid frame - fn %d\n", is_fn);
+					is_ctrl.id =
+						V4L2_CID_IS_SET_FRAME_VALID;
+					is_ctrl.value = 0;
+					v4l2_subdev_call(ctrl->is.sd,
+						core, s_ctrl, &is_ctrl);
+				}
+				ctrl->is.frame_count++;
+			} else {
+			/* Frame lost case */
+				is_ctrl.id =
+					V4L2_CID_IS_GET_LOSTED_FRAME_NUMBER;
+				is_ctrl.value = 0;
+				v4l2_subdev_call(ctrl->is.sd,
+					core, g_ctrl, &is_ctrl);
+				fimc_info2("%d Frame lost - %d,%d",
+					(is_ctrl.value-ctrl->is.frame_count),
+					ctrl->is.frame_count, is_ctrl.value);
+				ctrl->is.frame_count = is_ctrl.value;
+				is_ctrl.id = V4L2_CID_IS_CLEAR_FRAME_NUMBER;
+				is_ctrl.value = ctrl->is.frame_count;
+				v4l2_subdev_call(ctrl->is.sd,
+					core, s_ctrl, &is_ctrl);
+			}
+		}
+
+		if (cap->pktdata_enable) {
+			if (ctrl->cam->id == CAMERA_CSI_C)
+				s3c_csis_get_pkt(CSI_CH_0 , cap->bufs[buf_index].vaddr_pktdata);
+			else if (ctrl->cam->id == CAMERA_CSI_D)
+				s3c_csis_get_pkt(CSI_CH_1 , cap->bufs[buf_index].vaddr_pktdata);
+		}
+
+		fimc_add_outgoing_queue(ctrl, buf_index);
+		spin_lock(&ctrl->inq_lock);
+
+		fimc_hwset_output_buf_sequence(ctrl, buf_index,
+				FIMC_FRAMECNT_SEQ_DISABLE);
+
+		framecnt_seq = fimc_hwget_output_buf_sequence(ctrl);
+		available_bufnum = fimc_hwget_number_of_bits(framecnt_seq);
+
+		spin_unlock(&ctrl->inq_lock);
+
+		fimc_info2("%s[%d] : framecnt_seq: %d, available_bufnum: %d\n",
+			__func__, ctrl->id, framecnt_seq, available_bufnum);
+		if (ctrl->status != FIMC_BUFFER_STOP) {
+			if (available_bufnum == 1) {
+				ctrl->cap->lastirq = 0;
+				fimc_stop_capture(ctrl);
+				ctrl->is_frame_end_irq = 1;
+
+				printk(KERN_INFO "fimc_irq_cap available_bufnum = %d\n", available_bufnum);
+				ctrl->status = FIMC_BUFFER_STOP;
+			}
+		} else {
+			fimc_info1("%s : Aleady fimc stop\n", __func__);
+		}
+	} else
+		pp = ((fimc_hwget_frame_count(ctrl) + 2) % 4);
+
 	if (cap->fmt.field == V4L2_FIELD_INTERLACED_TB) {
 		/* odd value of pp means one frame is made with top/bottom */
 		if (pp & 0x1) {
@@ -432,25 +668,37 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 static irqreturn_t fimc_irq(int irq, void *dev_id)
 {
 	struct fimc_control *ctrl = (struct fimc_control *) dev_id;
+	struct s3c_platform_fimc *pdata;
 
 	if (ctrl->cap)
 		fimc_irq_cap(ctrl);
 	else if (ctrl->out)
 		fimc_irq_out(ctrl);
+	else {
+		printk(KERN_ERR "%s this message must not be shown!!!"
+				" fimc%d\n", __func__, (int)dev_id);
+		pdata = to_fimc_plat(ctrl->dev);
+		pdata->clk_on(to_platform_device(ctrl->dev),
+					&ctrl->clk);
+		fimc_hwset_clear_irq(ctrl);
+		pdata->clk_off(to_platform_device(ctrl->dev),
+					&ctrl->clk);
+	}
 
 	return IRQ_HANDLED;
 }
 
-static
-struct fimc_control *fimc_register_controller(struct platform_device *pdev)
+static struct fimc_control *fimc_register_controller(struct platform_device *pdev)
 {
 	struct s3c_platform_fimc *pdata;
 	struct fimc_control *ctrl;
 	struct resource *res;
-	int id, mdev_id;
+	int id, err;
+	struct cma_info mem_info;
+	struct clk *sclk_fimc_lclk = NULL;
+	struct clk *fimc_src_clk = NULL;
 
 	id = pdev->id;
-	mdev_id = S5P_MDEV_FIMC0 + id;
 	pdata = to_fimc_plat(&pdev->dev);
 
 	ctrl = get_fimc_ctrl(id);
@@ -458,13 +706,55 @@ struct fimc_control *fimc_register_controller(struct platform_device *pdev)
 	ctrl->dev = &pdev->dev;
 	ctrl->vd = &fimc_video_device[id];
 	ctrl->vd->minor = id;
+	ctrl->log = FIMC_LOG_DEFAULT;
+	ctrl->power_status = FIMC_POWER_OFF;
 
-	/* alloc from bank1 as default */
-	ctrl->mem.base = pdata->pmem_start;
-	ctrl->mem.size = pdata->pmem_size;
+#ifdef CONFIG_VIDEO_SAMSUNG_USE_DMA_MEM
+	sprintf(ctrl->cma_name, "%s", FIMC_CMA_NAME);
+	ctrl->mem.size = 0;
+	ctrl->mem.base = 0;
+#else
+	/* CMA */
+#ifdef CONFIG_ION_EXYNOS
+	/* In Midas project, FIMC2 reserve memory is used by ION driver. */
+	if (id != 2) {
+#endif
+#ifdef CONFIG_USE_FIMC_CMA
+		if (id == 1) {
+			ctrl->mem.size =
+				CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC1 * SZ_1K;
+			ctrl->mem.base = 0;
+		} else
+#endif
+		{
+			sprintf(ctrl->cma_name, "%s%d",
+					FIMC_CMA_NAME, ctrl->id);
+			err = cma_info(&mem_info, ctrl->dev, 0);
+			fimc_info1("%s : [cma_info] start_addr : 0x%x, "
+				" end_addr : 0x%x, total_size : 0x%x, "
+				"free_size : 0x%x\n", __func__,
+				mem_info.lower_bound, mem_info.upper_bound,
+				mem_info.total_size, mem_info.free_size);
+			if (err) {
+				fimc_err("%s: get cma info failed\n", __func__);
+				ctrl->mem.size = 0;
+				ctrl->mem.base = 0;
+			} else {
+				ctrl->mem.size = mem_info.total_size;
+				ctrl->mem.base = (dma_addr_t)cma_alloc
+					(ctrl->dev, ctrl->cma_name,
+					(size_t)ctrl->mem.size, 0);
+			}
+		}
+#ifdef CONFIG_ION_EXYNOS
+	}
+#endif
+	printk(KERN_DEBUG "ctrl->mem.size = 0x%x\n", ctrl->mem.size);
+	printk(KERN_DEBUG "ctrl->mem.base = 0x%x\n", ctrl->mem.base);
 	ctrl->mem.curr = ctrl->mem.base;
-
+#endif
 	ctrl->status = FIMC_STREAMOFF;
+
 	switch (pdata->hw_ver) {
 	case 0x40:
 		ctrl->limit = &fimc40_limits[id];
@@ -476,17 +766,24 @@ struct fimc_control *fimc_register_controller(struct platform_device *pdev)
 	case 0x50:
 		ctrl->limit = &fimc50_limits[id];
 		break;
+	case 0x51:
+		ctrl->limit = &fimc51_limits[id];
+		break;
+	default:
+		ctrl->limit = &fimc51_limits[id];
+		fimc_err("%s: failed to get HW version\n", __func__);
+		break;
 	}
-
-	ctrl->log = FIMC_LOG_DEFAULT;
 
 	sprintf(ctrl->name, "%s%d", FIMC_NAME, id);
 	strcpy(ctrl->vd->name, ctrl->name);
 
 	atomic_set(&ctrl->in_use, 0);
 	mutex_init(&ctrl->lock);
-	mutex_init(&ctrl->alloc_lock);
 	mutex_init(&ctrl->v4l2_lock);
+	spin_lock_init(&ctrl->outq_lock);
+	spin_lock_init(&ctrl->inq_lock);
+
 	init_waitqueue_head(&ctrl->wq);
 
 	/* get resource for io memory */
@@ -511,12 +808,40 @@ struct fimc_control *fimc_register_controller(struct platform_device *pdev)
 		return NULL;
 	}
 
-	/* irq */
-	ctrl->irq = platform_get_irq(pdev, 0);
-	if (request_irq(ctrl->irq, fimc_irq, IRQF_DISABLED, ctrl->name, ctrl))
-		fimc_err("%s: request_irq failed\n", __func__);
+	if (soc_is_exynos4210())
+		fimc_src_clk = clk_get(&pdev->dev, "mout_mpll");
+	else
+		fimc_src_clk = clk_get(&pdev->dev, "mout_mpll_user");
 
+	if (IS_ERR(fimc_src_clk)) {
+		dev_err(&pdev->dev, "failed to get parent clock\n");
+		iounmap(ctrl->regs);
+		return NULL;
+	}
+
+	sclk_fimc_lclk = clk_get(&pdev->dev, FIMC_CORE_CLK);
+	if (IS_ERR(sclk_fimc_lclk)) {
+		dev_err(&pdev->dev, "failed to get sclk_fimc_lclk\n");
+		iounmap(ctrl->regs);
+		clk_put(fimc_src_clk);
+		return NULL;
+	}
+
+	if (clk_set_parent(sclk_fimc_lclk, fimc_src_clk)) {
+		dev_err(&pdev->dev, "unable to set parent %s of clock %s.\n",
+				fimc_src_clk->name, sclk_fimc_lclk->name);
+		iounmap(ctrl->regs);
+		clk_put(sclk_fimc_lclk);
+		clk_put(fimc_src_clk);
+		return NULL;
+	}
+	clk_set_rate(sclk_fimc_lclk, fimc_clk_rate());
+	clk_put(sclk_fimc_lclk);
+	clk_put(fimc_src_clk);
+
+#if (!defined(CONFIG_EXYNOS_DEV_PD) || !defined(CONFIG_PM_RUNTIME))
 	fimc_hwset_reset(ctrl);
+#endif
 
 	return ctrl;
 }
@@ -530,12 +855,13 @@ static int fimc_unregister_controller(struct platform_device *pdev)
 	pdata = to_fimc_plat(&pdev->dev);
 	ctrl = get_fimc_ctrl(id);
 
-	free_irq(ctrl->irq, ctrl);
+	if (ctrl->irq)
+		free_irq(ctrl->irq, ctrl);
 	mutex_destroy(&ctrl->lock);
-	mutex_destroy(&ctrl->alloc_lock);
 	mutex_destroy(&ctrl->v4l2_lock);
 
-	fimc_clk_en(ctrl, false);
+	if (pdata->clk_off)
+		pdata->clk_off(pdev, &ctrl->clk);
 
 	iounmap(ctrl->regs);
 	memset(ctrl, 0, sizeof(*ctrl));
@@ -551,6 +877,10 @@ static void fimc_mmap_open(struct vm_area_struct *vma)
 	u32 ctx		= (pri_data - (id * 0x100)) / 0x10;
 	u32 idx		= pri_data % 0x10;
 
+	BUG_ON(id >= FIMC_DEVICES);
+	BUG_ON(ctx >= FIMC_MAX_CTXS);
+	BUG_ON(idx >= FIMC_OUTBUFS);
+
 	atomic_inc(&dev->ctrl[id].out->ctx[ctx].src[idx].mapped_cnt);
 }
 
@@ -561,6 +891,10 @@ static void fimc_mmap_close(struct vm_area_struct *vma)
 	u32 id		= pri_data / 0x100;
 	u32 ctx		= (pri_data - (id * 0x100)) / 0x10;
 	u32 idx		= pri_data % 0x10;
+
+	BUG_ON(id >= FIMC_DEVICES);
+	BUG_ON(ctx >= FIMC_MAX_CTXS);
+	BUG_ON(idx >= FIMC_OUTBUFS);
 
 	atomic_dec(&dev->ctrl[id].out->ctx[ctx].src[idx].mapped_cnt);
 }
@@ -593,7 +927,7 @@ int fimc_mmap_out_src(struct file *filp, struct vm_area_struct *vma)
 	}
 
 	pri_data = (ctrl->id * 0x100) + (ctx_id * 0x10) + idx;
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	vma->vm_flags |= VM_RESERVED;
 	vma->vm_ops = &fimc_mmap_ops;
 	vma->vm_private_data = (void *)pri_data;
@@ -630,10 +964,14 @@ int fimc_mmap_out_dst(struct file *filp, struct vm_area_struct *vma, u32 idx)
 
 	size = vma->vm_end - vma->vm_start;
 
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	vma->vm_flags |= VM_RESERVED;
 
-	pfn = __phys_to_pfn(ctrl->out->ctx[ctx_id].dst[idx].base[0]);
+	if (ctrl->out->ctx[ctx_id].dst[idx].base[0])
+		pfn = __phys_to_pfn(ctrl->out->ctx[ctx_id].dst[idx].base[0]);
+	else
+		pfn = __phys_to_pfn(ctrl->mem.curr);
+
 	ret = remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot);
 	if (ret != 0)
 		fimc_err("remap_pfn_range fail.\n");
@@ -666,7 +1004,9 @@ static inline int fimc_mmap_cap(struct file *filp, struct vm_area_struct *vma)
 	u32 size = vma->vm_end - vma->vm_start;
 	u32 pfn, idx = vma->vm_pgoff;
 
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	if (!ctrl->cap->cacheable)
+		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
 	vma->vm_flags |= VM_RESERVED;
 
 	/*
@@ -703,22 +1043,270 @@ static int fimc_mmap(struct file *filp, struct vm_area_struct *vma)
 	return ret;
 }
 
+#ifdef CONFIG_SLP_DMABUF
+/**
+ * _fimc_dmabuf_put() - release memory associated with
+ * a DMABUF shared buffer
+ */
+static void _fimc_dmabuf_put(struct vb2_buffer *vb)
+{
+	unsigned int plane;
+
+	for (plane = 0; plane < vb->num_planes; ++plane) {
+		void *mem_priv = vb->planes[plane].mem_priv;
+
+		if (mem_priv) {
+			dma_buf_detach(vb->planes[plane].dbuf,
+					vb->planes[plane].mem_priv);
+			dma_buf_put(vb->planes[plane].dbuf);
+			vb->planes[plane].dbuf = NULL;
+			vb->planes[plane].mem_priv = NULL;
+		}
+	}
+}
+
+void _fimc_queue_free(struct fimc_control *ctrl, enum v4l2_buf_type type)
+{
+	unsigned int buffer;
+	struct vb2_buffer *vb;
+
+	for (buffer = 0; buffer < VIDEO_MAX_FRAME; ++buffer) {
+		if (V4L2_TYPE_IS_OUTPUT(type))
+			vb = ctrl->out_bufs[buffer];
+		else
+			vb = ctrl->cap_bufs[buffer];
+
+		if (!vb)
+			continue;
+		_fimc_dmabuf_put(vb);
+		kfree(vb);
+		vb = NULL;
+	}
+}
+
+int fimc_queue_alloc(struct fimc_control *ctrl, enum v4l2_buf_type type,
+		enum v4l2_memory memory, unsigned int num_buffers,
+		unsigned int num_planes)
+{
+	unsigned int buffer;
+	struct vb2_buffer *vb;
+
+	for (buffer = 0; buffer < num_buffers; ++buffer) {
+		vb = kzalloc(sizeof(struct vb2_buffer), GFP_KERNEL);
+		if (!vb) {
+			fimc_err("%s: Memory alloc for buffer struct failed\n",
+				__func__);
+			break;
+		}
+
+		if (V4L2_TYPE_IS_MULTIPLANAR(type))
+			vb->v4l2_buf.length = num_planes;
+
+		vb->num_planes = num_planes;
+		vb->v4l2_buf.index = buffer;
+		vb->v4l2_buf.type = type;
+		vb->v4l2_buf.memory = memory;
+
+		if (V4L2_TYPE_IS_OUTPUT(type))
+			ctrl->out_bufs[buffer] = vb;
+		else
+			ctrl->cap_bufs[buffer] = vb;
+	}
+
+	for (buffer = num_buffers; buffer < VIDEO_MAX_FRAME; ++buffer) {
+		ctrl->out_bufs[buffer] = NULL;
+		ctrl->cap_bufs[buffer] = NULL;
+	}
+
+	return buffer;
+}
+
+static inline int _verify_planes_array(struct vb2_buffer *vb,
+				const struct v4l2_buffer *b)
+{
+	if (NULL == b->m.planes) {
+		printk(KERN_ERR "%s: Multi-planar buffer passwd but planes"
+			" array not provided\n", __func__);
+		return -EINVAL;
+	}
+	if (b->length < vb->num_planes || b->length > VIDEO_MAX_PLANES) {
+		printk(KERN_ERR "%s: Incorrect planes array length, "
+			"expected %d, got %d\n", __func__,
+			vb->num_planes, b->length);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int _fill_v4l2_buffer(struct vb2_buffer *vb, struct v4l2_buffer *b,
+			struct v4l2_plane *v4l2_planes)
+{
+	int plane;
+	int ret;
+
+	memcpy(b, &vb->v4l2_buf, offsetof(struct v4l2_buffer, m));
+	b->input = vb->v4l2_buf.input;
+	b->reserved = vb->v4l2_buf.reserved;
+
+	if (V4L2_TYPE_IS_MULTIPLANAR(b->type)) {
+		ret = _verify_planes_array(vb, b);
+		if (ret)
+			return ret;
+
+		memcpy(b->m.planes, vb->v4l2_planes,
+			b->length * sizeof(struct v4l2_plane));
+
+		for (plane = 0; plane < vb->num_planes; ++plane)
+			b->m.planes[plane].m.fd =
+				vb->v4l2_planes[plane].m.fd;
+	} else {
+		b->length = vb->v4l2_planes[0].length;
+		b->bytesused = vb->v4l2_planes[0].bytesused;
+		b->m.fd = vb->v4l2_planes[0].m.fd;
+	}
+
+	return 0;
+}
+
+static int _fill_vb2_buffer(struct vb2_buffer *vb, struct v4l2_buffer *b,
+			struct v4l2_plane *v4l2_planes)
+{
+	unsigned int plane;
+	int ret;
+
+	if (V4L2_TYPE_IS_MULTIPLANAR(b->type)) {
+		ret = _verify_planes_array(vb, b);
+		if (ret)
+			return ret;
+
+		if (V4L2_TYPE_IS_OUTPUT(b->type)) {
+			for (plane = 0; plane < vb->num_planes; ++plane) {
+				v4l2_planes[plane].bytesused =
+					b->m.planes[plane].bytesused;
+				v4l2_planes[plane].data_offset =
+					b->m.planes[plane].data_offset;
+			}
+		}
+		for (plane = 0; plane < vb->num_planes; ++plane)
+			v4l2_planes[plane].m.fd =
+				b->m.planes[plane].m.fd;
+
+	} else {
+		if (V4L2_TYPE_IS_OUTPUT(b->type))
+			v4l2_planes[0].bytesused =
+					b->bytesused;
+			v4l2_planes[0].m.fd = b->m.fd;
+	}
+
+	vb->v4l2_buf.field = b->field;
+	vb->v4l2_buf.timestamp = b->timestamp;
+	vb->v4l2_buf.input = b->input;
+
+	return 0;
+}
+
+int _qbuf_dmabuf(struct fimc_control *ctrl, struct vb2_buffer *vb,
+	struct v4l2_buffer *b)
+{
+	struct v4l2_plane planes[VIDEO_MAX_PLANES];
+	unsigned int plane;
+	struct sg_table *sg;
+	struct dma_buf_attachment *dba;
+	int ret;
+
+	ret = _fill_vb2_buffer(vb, b, planes);
+	if (ret)
+		return ret;
+
+	for (plane = 0; plane < vb->num_planes; ++plane) {
+		struct dma_buf *dbuf = dma_buf_get(planes[plane].m.fd);
+
+		if (IS_ERR_OR_NULL(dbuf)) {
+			fimc_err("dmabuf get error!!! %x\n", plane);
+			ret = PTR_ERR(dbuf);
+			goto err;
+		}
+		planes[plane].length = dbuf->size;
+
+		/* Skip the plane if already verified */
+		if (dbuf == vb->planes[plane].dbuf) {
+			dma_buf_put(dbuf);
+			continue;
+		}
+
+		vb->planes[plane].mem_priv = NULL;
+
+		dba = dma_buf_attach(dbuf, ctrl->dev);
+		if (IS_ERR(dba)) {
+			fimc_err("failed to attach dmabuf\n");
+			dma_buf_put(dbuf);
+			ret = PTR_ERR(dba);
+			goto err;
+		}
+
+		sg = dma_buf_map_attachment(dba, DMA_BIDIRECTIONAL);
+		if (IS_ERR(sg)) {
+			fimc_err("qbuf: failed acquiring dmabuf "
+					"memory for plane\n");
+			ret = PTR_ERR(sg);
+			goto err;
+		}
+		dba->priv = sg;
+
+		vb->planes[plane].dbuf = dbuf;
+		vb->planes[plane].mem_priv = dba;
+
+		vb->v4l2_planes[plane] = planes[plane];
+	}
+
+	return 0;
+
+err:
+	_fimc_dmabuf_put(vb);
+
+	return ret;
+}
+
+int _dqbuf_dmabuf(struct fimc_control *ctrl, struct vb2_buffer *vb,
+		struct v4l2_buffer *b)
+{
+	struct v4l2_plane planes[VIDEO_MAX_PLANES];
+	struct sg_table *sg[VIDEO_MAX_PLANES];
+	struct dma_buf_attachment *dba[VIDEO_MAX_PLANES];
+	unsigned int plane;
+	int ret;
+
+	ret = _fill_v4l2_buffer(vb, b, planes);
+	if (ret)
+		return ret;
+
+	for (plane = 0; plane < vb->num_planes; ++plane) {
+		dba[plane] = vb->planes[plane].mem_priv;
+		sg[plane] = dba[plane]->priv;
+		dma_buf_unmap_attachment(dba[plane],
+			sg[plane], DMA_FROM_DEVICE);
+	}
+
+	return 0;
+}
+#endif
+
 static u32 fimc_poll(struct file *filp, poll_table *wait)
 {
 	struct fimc_prv_data *prv_data =
-				(struct fimc_prv_data *)filp->private_data;
+		(struct fimc_prv_data *)filp->private_data;
 	struct fimc_control *ctrl = prv_data->ctrl;
 	struct fimc_capinfo *cap = ctrl->cap;
 	u32 mask = 0;
 
-	if (cap) {
-		if (cap->irq || (ctrl->status != FIMC_STREAMON)) {
-			mask = POLLIN | POLLRDNORM;
-			cap->irq = 0;
-		} else {
-			poll_wait(filp, &ctrl->wq, wait);
-		}
-	}
+	if (!cap)
+		return 0;
+
+	if (!list_empty(&cap->outgoing_q))
+		mask = POLLIN | POLLRDNORM;
+	else
+		poll_wait(filp, &ctrl->wq, wait);
 
 	return mask;
 }
@@ -872,31 +1460,14 @@ void fimc_get_nv12t_size(int img_hres, int img_vres,
 
 }
 
-static int fimc_get_free_ctx(struct fimc_control *ctrl)
-{
-	int i;
-
-	if (1 != ctrl->id)
-		return 0;
-
-	for (i = 0; i < FIMC_MAX_CTXS; i++) {
-		if (ctrl->ctx_busy[i] == 0) {
-			ctrl->ctx_busy[i] = 1;
-			fimc_info1("Current context is %d\n", i);
-			return i;
-		}
-	}
-
-	return -1;
-}
-
 static int fimc_open(struct file *filp)
 {
 	struct fimc_control *ctrl;
 	struct s3c_platform_fimc *pdata;
 	struct fimc_prv_data *prv_data;
-	int in_use;
+	int in_use, max_use;
 	int ret;
+	int i;
 
 	ctrl = video_get_drvdata(video_devdata(filp));
 	pdata = to_fimc_plat(ctrl->dev);
@@ -904,12 +1475,18 @@ static int fimc_open(struct file *filp)
 	mutex_lock(&ctrl->lock);
 
 	in_use = atomic_read(&ctrl->in_use);
-	if (in_use >= FIMC_MAX_CTXS || (in_use && 1 != ctrl->id)) {
-		fimc_err("%s: Device busy.\n", __func__);
+	if (pdata->camera[0])
+		max_use = 1;
+	else
+		max_use = FIMC_MAX_CTXS + 1;
+
+	if (in_use >= max_use) {
 		ret = -EBUSY;
 		goto resource_busy;
 	} else {
 		atomic_inc(&ctrl->in_use);
+		fimc_warn("FIMC%d %d opened.\n",
+			 ctrl->id, atomic_read(&ctrl->in_use));
 	}
 	in_use = atomic_read(&ctrl->in_use);
 
@@ -920,48 +1497,73 @@ static int fimc_open(struct file *filp)
 		goto kzalloc_err;
 	}
 
-	prv_data->ctx_id = fimc_get_free_ctx(ctrl);
-	if (prv_data->ctx_id < 0) {
-		fimc_err("%s: Context busy flag not reset.\n", __func__);
-		ret = -EBUSY;
-		goto ctx_err;
+#ifdef CONFIG_USE_FIMC_CMA
+	if (ctrl->id == 1) {
+		ctrl->mem.cpu_addr = dma_alloc_coherent(ctrl->dev,
+					ctrl->mem.size, &(ctrl->mem.base), 0);
+		if (!ctrl->mem.cpu_addr) {
+			printk(KERN_INFO "FIMC%d: dma_alloc_coherent failed\n",
+								ctrl->id);
+			ret = -ENOMEM;
+			goto dma_alloc_err;
+		}
 	}
-	prv_data->ctrl = ctrl;
-	filp->private_data = prv_data;
+#endif
 
 	if (in_use == 1) {
-		fimc_clk_en(ctrl, true);
+#if (!defined(CONFIG_EXYNOS_DEV_PD) || !defined(CONFIG_PM_RUNTIME))
+		if (pdata->clk_on)
+			pdata->clk_on(to_platform_device(ctrl->dev),
+					&ctrl->clk);
 
 		if (pdata->hw_ver == 0x40)
 			fimc_hw_reset_camera(ctrl);
 
 		/* Apply things to interface register */
 		fimc_hwset_reset(ctrl);
+#endif
+		ctrl->fb.open_fifo = s3cfb_open_fifo;
+		ctrl->fb.close_fifo = s3cfb_close_fifo;
 
-		if (num_registered_fb > 0) {
-			struct fb_info *fbinfo = registered_fb[0];
-			ctrl->fb.lcd_hres = (int)fbinfo->var.xres;
-			ctrl->fb.lcd_vres = (int)fbinfo->var.yres;
-			fimc_info1("%s: fd.lcd_hres=%d fd.lcd_vres=%d\n",
-					__func__, ctrl->fb.lcd_hres,
-					ctrl->fb.lcd_vres);
+		ret = s3cfb_direct_ioctl(ctrl->id, S3CFB_GET_LCD_WIDTH,
+					(unsigned long)&ctrl->fb.lcd_hres);
+		if (ret < 0) {
+			fimc_err("Fail: S3CFB_GET_LCD_WIDTH\n");
+			goto resource_busy;
+		}
+
+		ret = s3cfb_direct_ioctl(ctrl->id, S3CFB_GET_LCD_HEIGHT,
+					(unsigned long)&ctrl->fb.lcd_vres);
+		if (ret < 0) {
+			fimc_err("Fail: S3CFB_GET_LCD_HEIGHT\n");
+			goto resource_busy;
 		}
 
 		ctrl->mem.curr = ctrl->mem.base;
 		ctrl->status = FIMC_STREAMOFF;
-
-		if (0 != ctrl->id)
-			fimc_clk_en(ctrl, false);
 	}
+	prv_data->ctrl = ctrl;
+	if (prv_data->ctrl->out != NULL) {
+		for (i = 0; i < FIMC_MAX_CTXS; i++)
+			if (prv_data->ctrl->out->ctx_used[i] == false) {
+				prv_data->ctx_id = i;
+				prv_data->ctrl->out->ctx_used[i] = true;
+				break;
+			}
+	} else {
+		prv_data->ctx_id = in_use - 1;
+	}
+
+	filp->private_data = prv_data;
 
 	mutex_unlock(&ctrl->lock);
 
-	fimc_info1("%s opened.\n", ctrl->name);
-
 	return 0;
 
-ctx_err:
+#ifdef CONFIG_USE_FIMC_CMA
+dma_alloc_err:
 	kfree(prv_data);
+#endif
 
 kzalloc_err:
 	atomic_dec(&ctrl->in_use);
@@ -976,64 +1578,66 @@ static int fimc_release(struct file *filp)
 	struct fimc_prv_data *prv_data =
 				(struct fimc_prv_data *)filp->private_data;
 	struct fimc_control *ctrl = prv_data->ctrl;
+	struct fimc_capinfo *cap;
 	int ctx_id = prv_data->ctx_id;
 	struct s3c_platform_fimc *pdata;
 	struct fimc_overlay_buf *buf;
 	struct mm_struct *mm = current->mm;
 	struct fimc_ctx *ctx;
 	int ret = 0, i;
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+	struct platform_device *pdev = to_platform_device(ctrl->dev);
+#endif
+
 	ctx = &ctrl->out->ctx[ctx_id];
 
 	pdata = to_fimc_plat(ctrl->dev);
 
-	mutex_lock(&ctrl->lock);
 	atomic_dec(&ctrl->in_use);
 
+	if (ctrl->cap && (ctrl->status != FIMC_STREAMOFF))
+		fimc_streamoff_capture((void *)ctrl);
+
 	/* FIXME: turning off actual working camera */
-	if (ctrl->cam && ctrl->id != 2) {
+	if (ctrl->cap && ctrl->cam) {
 		/* Unload the subdev (camera sensor) module,
-		 * reset related status flags
-		 */
+		 * reset related status flags */
 		fimc_release_subdev(ctrl);
+		fimc_is_release_subdev(ctrl);
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+		if (ctrl->power_status == FIMC_POWER_ON)
+			pm_runtime_put_sync(ctrl->dev);
+#endif
+	} else if (ctrl->is.sd) {
+		fimc_is_release_subdev(ctrl);
 	}
-
-	if (ctrl->cap) {
-		ctrl->mem.curr = ctrl->mem.base;
-		kfree(filp->private_data);
-		filp->private_data = NULL;
-
-		for (i = 0; i < FIMC_CAPBUFS; i++) {
-			fimc_dma_free(ctrl, &ctrl->cap->bufs[i], 0);
-			fimc_dma_free(ctrl, &ctrl->cap->bufs[i], 1);
-			fimc_dma_free(ctrl, &ctrl->cap->bufs[i], 2);
+	if (atomic_read(&ctrl->in_use) == 0) {
+#if (!defined(CONFIG_EXYNOS_DEV_PD) || !defined(CONFIG_PM_RUNTIME))
+		if (pdata->clk_off) {
+			pdata->clk_off(to_platform_device(ctrl->dev),
+					&ctrl->clk);
+			ctrl->power_status = FIMC_POWER_OFF;
 		}
-
-		fimc_clk_en(ctrl, false);
-
-		kfree(ctrl->cap);
-		ctrl->cap = NULL;
+#endif
 	}
-
 	if (ctrl->out) {
 		if (ctx->status != FIMC_STREAMOFF) {
-			fimc_clk_en(ctrl, true);
 			ret = fimc_outdev_stop_streaming(ctrl, ctx);
-			fimc_clk_en(ctrl, false);
-			if (ret < 0)
+			if (ret < 0) {
 				fimc_err("Fail: fimc_stop_streaming\n");
+				return -EINVAL;
+			}
 
 			ret = fimc_init_in_queue(ctrl, ctx);
 			if (ret < 0) {
 				fimc_err("Fail: fimc_init_in_queue\n");
-				ret = -EINVAL;
-				goto release_err;
+				return -EINVAL;
 			}
 
 			ret = fimc_init_out_queue(ctrl, ctx);
 			if (ret < 0) {
 				fimc_err("Fail: fimc_init_out_queue\n");
-				ret = -EINVAL;
-				goto release_err;
+				return -EINVAL;
 			}
 
 			/* Make all buffers DQUEUED state. */
@@ -1059,65 +1663,112 @@ static int fimc_release(struct file *filp)
 
 			ctx->status = FIMC_STREAMOFF;
 		}
+	}
 
+	if (atomic_read(&ctrl->in_use) == 0) {
+#if (!defined(CONFIG_EXYNOS_DEV_PD) || !defined(CONFIG_PM_RUNTIME))
+		if (pdata->clk_off) {
+			pdata->clk_off(to_platform_device(ctrl->dev),
+					&ctrl->clk);
+			ctrl->power_status = FIMC_POWER_OFF;
+		}
+
+		/* Apply things to interface register */
+		fimc_hwset_reset(ctrl);
+#endif
+	}
+
+	if (ctrl->out) {
+		ctx->is_requested = 0;
 		buf = &ctx->overlay.buf;
 		for (i = 0; i < FIMC_OUTBUFS; i++) {
 			if (buf->vir_addr[i]) {
 				ret = do_munmap(mm, buf->vir_addr[i],
 						buf->size[i]);
 				if (ret < 0)
-					fimc_err("%s: do_munmap fail\n", \
+					fimc_err("%s: do_munmap fail\n",
 							__func__);
 			}
 		}
 
-		ctrl->ctx_busy[ctx_id] = 0;
-		memset(ctx, 0x00, sizeof(struct fimc_ctx));
+		/* reset inq & outq of context */
+		for (i = 0; i < FIMC_OUTBUFS; i++) {
+			ctx->inq[i] = -1;
+			ctx->outq[i] = -1;
+		}
 
 		if (atomic_read(&ctrl->in_use) == 0) {
 			ctrl->status = FIMC_STREAMOFF;
 			fimc_outdev_init_idxs(ctrl);
 
-			fimc_clk_en(ctrl, false);
-
 			ctrl->mem.curr = ctrl->mem.base;
-
+#ifdef CONFIG_VIDEO_SAMSUNG_USE_DMA_MEM
+			if (ctrl->mem.base)
+				cma_free(ctrl->mem.base);
+#endif
 			kfree(ctrl->out);
 			ctrl->out = NULL;
 
 			kfree(filp->private_data);
 			filp->private_data = NULL;
+		} else {
+			ctrl->out->ctx_used[ctx_id] = false;
 		}
+#ifdef CONFIG_SLP_DMABUF
+		_fimc_queue_free(ctrl, V4L2_BUF_TYPE_VIDEO_OUTPUT);
+#endif
+	}
+
+	if (ctrl->cap) {
+		cap = ctrl->cap;
+		ctrl->mem.curr = ctrl->mem.base;
+#ifdef CONFIG_VIDEO_SAMSUNG_USE_DMA_MEM
+		if (ctrl->mem.base)
+			cma_free(ctrl->mem.base);
+#endif
+		kfree(filp->private_data);
+		filp->private_data = NULL;
+		if (pdata->hw_ver >= 0x51)
+			INIT_LIST_HEAD(&cap->outgoing_q);
+		for (i = 0; i < FIMC_CAPBUFS; i++) {
+			fimc_dma_free(ctrl, &ctrl->cap->bufs[i], 0);
+			fimc_dma_free(ctrl, &ctrl->cap->bufs[i], 1);
+			fimc_dma_free(ctrl, &ctrl->cap->bufs[i], 2);
+		}
+		kfree(ctrl->cap);
+		ctrl->cap = NULL;
+#ifdef CONFIG_SLP_DMABUF
+		_fimc_queue_free(ctrl, V4L2_BUF_TYPE_VIDEO_CAPTURE);
+#endif
 	}
 
 	/*
-	 * it remain afterimage when I play movie using overlay and exit
+	 * Close window for FIMC if window is enabled.
 	 */
 	if (ctrl->fb.is_enable == 1) {
-		fimc_info2("WIN_OFF for FIMC%d\n", ctrl->id);
-		ret = fb_blank(registered_fb[ctx->overlay.fb_id],
-				FB_BLANK_POWERDOWN);
+		fimc_warn("WIN_OFF for FIMC%d\n", ctrl->id);
+		ret = s3cfb_direct_ioctl(ctrl->id, S3CFB_SET_WIN_OFF,
+						(unsigned long)NULL);
 		if (ret < 0) {
-			fimc_err("%s: fb_blank: fb[%d] " \
-					"mode=FB_BLANK_POWERDOWN\n",
-					__func__, ctx->overlay.fb_id);
-			ret = -EINVAL;
-			goto release_err;
+			fimc_err("direct_ioctl(S3CFB_SET_WIN_OFF) fail\n");
+			return -EINVAL;
 		}
 
 		ctrl->fb.is_enable = 0;
 	}
 
-	mutex_unlock(&ctrl->lock);
-
-	fimc_info1("%s released.\n", ctrl->name);
+#ifdef CONFIG_USE_FIMC_CMA
+	if (ctrl->id == 1) {
+		dma_free_coherent(ctrl->dev, ctrl->mem.size, ctrl->mem.cpu_addr,
+					ctrl->mem.base);
+		ctrl->mem.base = 0;
+		ctrl->mem.cpu_addr = NULL;
+	}
+#endif
+	fimc_warn("FIMC%d %d released.\n",
+			ctrl->id, atomic_read(&ctrl->in_use));
 
 	return 0;
-
-release_err:
-	mutex_unlock(&ctrl->lock);
-	return ret;
-
 }
 
 static const struct v4l2_file_operations fimc_fops = {
@@ -1152,52 +1803,102 @@ struct video_device fimc_video_device[FIMC_DEVICES] = {
 		.ioctl_ops = &fimc_v4l2_ops,
 		.release = fimc_vdev_release,
 	},
+#ifdef CONFIG_ARCH_EXYNOS4
+	[3] = {
+		.fops = &fimc_fops,
+		.ioctl_ops = &fimc_v4l2_ops,
+		.release = fimc_vdev_release,
+	},
+#endif
 };
 
 static int fimc_init_global(struct platform_device *pdev)
 {
+	struct fimc_control *ctrl;
 	struct s3c_platform_fimc *pdata;
 	struct s3c_platform_camera *cam;
-	int i;
+	struct clk *srclk;
+	int id, i;
 
 	pdata = to_fimc_plat(&pdev->dev);
+	id = pdev->id;
+	ctrl = get_fimc_ctrl(id);
 
 	/* Registering external camera modules. re-arrange order to be sure */
 	for (i = 0; i < FIMC_MAXCAMS; i++) {
 		cam = pdata->camera[i];
 		if (!cam)
 			break;
+		/* WriteBack doesn't need clock setting */
+		if ((cam->id == CAMERA_WB) || (cam->id == CAMERA_WB_B)) {
+			fimc_dev->camera[i] = cam;
+			fimc_dev->camera_isvalid[i] = 1;
+			fimc_dev->camera[i]->initialized = 0;
+			continue;
+		}
 
-		cam->srclk = clk_get(&pdev->dev, cam->srclk_name);
-		if (IS_ERR(cam->srclk)) {
-			dev_err(&pdev->dev, "%s: failed to get mclk source\n",
-					__func__);
+		/* source clk for MCLK*/
+		srclk = clk_get(&pdev->dev, cam->srclk_name);
+		if (IS_ERR(srclk)) {
+			fimc_err("%s: failed to get srclk source\n", __func__);
 			return -EINVAL;
 		}
 
 		/* mclk */
+#if defined(CONFIG_MACH_MIDAS) || defined(CONFIG_SLP)
+		cam->clk = clk_get(&pdev->dev, cam->get_clk_name());
+#else
 		cam->clk = clk_get(&pdev->dev, cam->clk_name);
+#endif
 		if (IS_ERR(cam->clk)) {
-			dev_err(&pdev->dev, "%s: failed to get mclk source\n",
-					__func__);
-			clk_put(cam->srclk);
+			fimc_err("%s: failed to get mclk source\n", __func__);
 			return -EINVAL;
 		}
 
-		clk_put(cam->clk);
-		clk_put(cam->srclk);
+		if (clk_set_parent(cam->clk, srclk)) {
+			dev_err(&pdev->dev, "unable to set parent %s of clock %s.\n",
+					srclk->name, cam->clk->name);
+			clk_put(srclk);
+			clk_put(cam->clk);
+			return -EINVAL;
+		}
 
 		/* Assign camera device to fimc */
-		memcpy(&fimc_dev->camera[i], cam, sizeof(*cam));
+		fimc_dev->camera[i] = cam;
 		fimc_dev->camera_isvalid[i] = 1;
-		fimc_dev->camera[i].initialized = 0;
+		fimc_dev->camera[i]->initialized = 0;
 	}
 
+	fimc_dev->mclk_status = CAM_MCLK_OFF;
 	fimc_dev->active_camera = -1;
 	fimc_dev->initialized = 1;
 
 	return 0;
 }
+
+#ifdef CONFIG_DRM_EXYNOS_FIMD_WB
+static BLOCKING_NOTIFIER_HEAD(fimc_notifier_client_list);
+
+int fimc_register_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(
+			&fimc_notifier_client_list, nb);
+}
+EXPORT_SYMBOL(fimc_register_client);
+
+int fimc_unregister_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(
+			&fimc_notifier_client_list, nb);
+}
+EXPORT_SYMBOL(fimc_unregister_client);
+
+int fimc_send_event(unsigned long val, void *v)
+{
+	return blocking_notifier_call_chain(
+			&fimc_notifier_client_list, val, v);
+}
+#endif
 
 static int fimc_show_log_level(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -1297,32 +1998,97 @@ static int fimc_store_log_level(struct device *dev,
 	}
 
 	if (!match) {
-		printk(KERN_INFO "FIMC_LOG_ERR		\t: Error condition.\n");
-		printk(KERN_INFO "FIMC_LOG_WARN		\t: WARNING condition.\n");
-		printk(KERN_INFO "FIMC_LOG_INFO_L1	\t: V4L2 API without QBUF, DQBUF.\n");
-		printk(KERN_INFO "FIMC_LOG_INFO_L2	\t: V4L2 API QBUF, DQBUF.\n");
-		printk(KERN_INFO "FIMC_LOG_DEBUG	\t: Queue status report.\n");
+		printk(KERN_INFO "FIMC_LOG_ERR	\t: Error condition.\n");
+		printk(KERN_INFO "FIMC_LOG_WARN	\t: WARNING condition.\n");
+		printk(KERN_INFO "FIMC_LOG_INFO_L1 \t: V4L2 API without QBUF, DQBUF.\n");
+		printk(KERN_INFO "FIMC_LOG_INFO_L2 \t: V4L2 API QBUF, DQBUF.\n");
+		printk(KERN_INFO "FIMC_LOG_DEBUG \t: Queue status report.\n");
 	}
 
 	return len;
 }
 
-static DEVICE_ATTR(log_level, 0644, \
-			fimc_show_log_level,
-			fimc_store_log_level);
+static DEVICE_ATTR(log_level, 0644, fimc_show_log_level, fimc_store_log_level);
+
+static int fimc_show_range_mode(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fimc_control *ctrl;
+	struct platform_device *pdev;
+	int id = -1;
+
+	char temp[150];
+
+	pdev = to_platform_device(dev);
+	id = pdev->id;
+	ctrl = get_fimc_ctrl(id);
+
+	sprintf(temp, "\t");
+	strcat(buf, temp);
+	if (ctrl->range == FIMC_RANGE_NARROW) {
+		sprintf(temp, "FIMC_RANGE_NARROW\n");
+		strcat(buf, temp);
+	} else {
+		sprintf(temp, "FIMC_RANGE_WIDE\n");
+		strcat(buf, temp);
+	}
+
+	return strlen(buf);
+}
+
+static int fimc_store_range_mode(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t len)
+{
+	struct fimc_control *ctrl;
+	struct platform_device *pdev;
+
+	const char *p = buf;
+	char msg[150] = {0, };
+	int id = -1;
+	u32 match = 0;
+
+	pdev = to_platform_device(dev);
+	id = pdev->id;
+	ctrl = get_fimc_ctrl(id);
+
+	while (*p != '\0') {
+		if (!isspace(*p))
+			strncat(msg, p, 1);
+		p++;
+	}
+
+	ctrl->range = 0;
+	printk(KERN_INFO "FIMC.%d range mode is set as below.\n", id);
+
+	if (strstr(msg, "FIMC_RANGE_WIDE") != NULL) {
+		ctrl->range = FIMC_RANGE_WIDE;
+		match = 1;
+		printk(KERN_INFO "\tFIMC_RANGE_WIDE\n");
+	}
+
+	if (strstr(msg, "FIMC_RANGE_NARROW") != NULL) {
+		ctrl->range = FIMC_RANGE_NARROW;
+		match = 1;
+		printk(KERN_INFO "\tFIMC_RANGE_NARROW\n");
+	}
+
+	return len;
+}
+
+static DEVICE_ATTR(range_mode, 0644, \
+			fimc_show_range_mode,
+			fimc_store_range_mode);
 
 static int __devinit fimc_probe(struct platform_device *pdev)
 {
 	struct s3c_platform_fimc *pdata;
 	struct fimc_control *ctrl;
-	struct clk *srclk;
 	int ret;
 
 	if (!fimc_dev) {
 		fimc_dev = kzalloc(sizeof(*fimc_dev), GFP_KERNEL);
 		if (!fimc_dev) {
-			dev_err(&pdev->dev, "%s: not enough memory\n",
-				__func__);
+			dev_err(&pdev->dev, "%s: not enough memory\n", __func__);
 			return -ENOMEM;
 		}
 	}
@@ -1334,38 +2100,8 @@ static int __devinit fimc_probe(struct platform_device *pdev)
 	}
 
 	pdata = to_fimc_plat(&pdev->dev);
-	if (pdata->cfg_gpio)
+	if ((ctrl->id == FIMC0) && (pdata->cfg_gpio))
 		pdata->cfg_gpio(pdev);
-
-	/* Get fimc power domain regulator */
-	ctrl->regulator = regulator_get(&pdev->dev, "pd");
-	if (IS_ERR(ctrl->regulator)) {
-		fimc_err("%s: failed to get resource %s\n",
-				__func__, "s3c-fimc");
-		return PTR_ERR(ctrl->regulator);
-	}
-
-	/* fimc source clock */
-	srclk = clk_get(&pdev->dev, pdata->srclk_name);
-	if (IS_ERR(srclk)) {
-		fimc_err("%s: failed to get source clock of fimc\n",
-				__func__);
-		goto err_v4l2;
-	}
-
-	/* fimc clock */
-	ctrl->clk = clk_get(&pdev->dev, pdata->clk_name);
-	if (IS_ERR(ctrl->clk)) {
-		fimc_err("%s: failed to get fimc clock source\n",
-			__func__);
-		goto err_v4l2;
-	}
-
-	/* set parent for mclk */
-	clk_set_parent(ctrl->clk, srclk);
-
-	/* set rate for mclk */
-	clk_set_rate(ctrl->clk, pdata->clk_rate);
 
 	/* V4L2 device-subdev registration */
 	ret = v4l2_device_register(&pdev->dev, &ctrl->v4l2_dev);
@@ -1373,6 +2109,9 @@ static int __devinit fimc_probe(struct platform_device *pdev)
 		fimc_err("%s: v4l2 device register failed\n", __func__);
 		goto err_fimc;
 	}
+	ctrl->vd->v4l2_dev = &ctrl->v4l2_dev;
+
+	ctrl->vd->v4l2_dev = &ctrl->v4l2_dev;
 
 	/* things to initialize once */
 	if (!fimc_dev->initialized) {
@@ -1390,14 +2129,54 @@ static int __devinit fimc_probe(struct platform_device *pdev)
 
 	video_set_drvdata(ctrl->vd, ctrl);
 
+#ifdef CONFIG_VIDEO_FIMC_RANGE_WIDE
+	ctrl->range = FIMC_RANGE_WIDE;
+#else
+	ctrl->range = FIMC_RANGE_NARROW;
+#endif
+
 	ret = device_create_file(&(pdev->dev), &dev_attr_log_level);
 	if (ret < 0) {
-		fimc_err("failed to add sysfs entries\n");
+		fimc_err("failed to add sysfs entries for log level\n");
 		goto err_global;
 	}
+	ret = device_create_file(&(pdev->dev), &dev_attr_range_mode);
+	if (ret < 0) {
+		fimc_err("failed to add sysfs entries for range mode\n");
+		goto err_create_file;
+	}
 	printk(KERN_INFO "FIMC%d registered successfully\n", ctrl->id);
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+	sprintf(buf, "fimc%d_iqr_wq_name", ctrl->id);
+	ctrl->fimc_irq_wq = create_workqueue(buf);
+	if (ctrl->fimc_irq_wq == NULL) {
+		fimc_err("failed to create_workqueue\n");
+		goto err_wq;
+	}
+
+	INIT_WORK(&ctrl->work_struct, s3c_fimc_irq_work);
+	atomic_set(&ctrl->irq_cnt, 0);
+
+	ctrl->power_status = FIMC_POWER_OFF;
+	pm_runtime_enable(&pdev->dev);
+#endif
+#if defined(CONFIG_BUSFREQ_OPP) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
+	/* To lock bus frequency in OPP mode */
+	ctrl->bus_dev = dev_get(EXYNOS_BUSFREQ_NAME);
+#endif
+
+	/* irq */
+	ctrl->irq = platform_get_irq(pdev, 0);
+	if (request_irq(ctrl->irq, fimc_irq, IRQF_DISABLED, ctrl->name, ctrl))
+		fimc_err("%s: request_irq failed\n", __func__);
 
 	return 0;
+
+err_wq:
+	 device_remove_file(&(pdev->dev), &dev_attr_range_mode);
+
+err_create_file:
+	 device_remove_file(&(pdev->dev), &dev_attr_log_level);
 
 err_global:
 	video_unregister_device(ctrl->vd);
@@ -1423,6 +2202,9 @@ static int fimc_remove(struct platform_device *pdev)
 	kfree(fimc_dev);
 	fimc_dev = NULL;
 
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+	pm_runtime_disable(&pdev->dev);
+#endif
 	return 0;
 }
 
@@ -1445,6 +2227,24 @@ static inline void fimc_suspend_out_ctx(struct fimc_control *ctrl,
 		} else if (ctx->status == FIMC_STREAMON_IDLE) {
 			fimc_outdev_stop_streaming(ctrl, ctx);
 			ctx->status = FIMC_ON_IDLE_SLEEP;
+		} else {
+			ctx->status = FIMC_OFF_SLEEP;
+		}
+
+		break;
+	case FIMC_OVLY_FIFO:
+		if (ctx->status == FIMC_STREAMON) {
+			if (ctx->inq[0] != -1)
+				fimc_err("%s: %d in queue unstable\n",
+					 __func__, __LINE__);
+
+			if ((ctrl->out->idxs.next.idx != -1) ||
+			    (ctrl->out->idxs.prev.idx != -1))
+				fimc_err("%s: %d FIMC unstable\n",
+					__func__, __LINE__);
+
+			fimc_outdev_stop_streaming(ctrl, ctx);
+			ctx->status = FIMC_ON_SLEEP;
 		} else {
 			ctx->status = FIMC_OFF_SLEEP;
 		}
@@ -1494,9 +2294,40 @@ static inline int fimc_suspend_out(struct fimc_control *ctrl)
 
 static inline int fimc_suspend_cap(struct fimc_control *ctrl)
 {
-	if (ctrl->cam->id == CAMERA_WB && ctrl->status == FIMC_STREAMON)
+	struct fimc_global *fimc = get_fimc_dev();
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+	struct platform_device *pdev = to_platform_device(ctrl->dev);
+	printk(KERN_INFO "%s\n", __func__);
+	if (ctrl->power_status == FIMC_POWER_ON)
+		pm_runtime_put_sync(&pdev->dev);
+#endif
+
+	if (ctrl->cam->id == CAMERA_WB || ctrl->cam->id == CAMERA_WB_B)	{
+		fimc_dbg("%s\n", __func__);
+		ctrl->suspend_framecnt = fimc_hwget_output_buf_sequence(ctrl);
 		fimc_streamoff_capture((void *)ctrl);
-	ctrl->status = FIMC_ON_SLEEP;
+		fimc_info1("%s : framecnt_seq : %d\n",
+				__func__, ctrl->suspend_framecnt);
+	} else {
+		if (ctrl->id == FIMC0 && ctrl->cam->initialized) {
+			ctrl->cam->initialized = 0;
+			if (ctrl->cam->use_isp) {
+				printk(KERN_INFO "%s use_isp s_power down\n", __func__);
+				v4l2_subdev_call(ctrl->is.sd, core, s_power, 0);
+			} else
+				v4l2_subdev_call(ctrl->cam->sd, core, s_power, 0);
+
+			if (fimc->mclk_status == CAM_MCLK_ON) {
+				if (ctrl->cam->cam_power)
+					ctrl->cam->cam_power(0);
+				/* shutdown the MCLK */
+				clk_disable(ctrl->cam->clk);
+				fimc->mclk_status = CAM_MCLK_OFF;
+			}
+		}
+	}
+	ctrl->power_status = FIMC_POWER_OFF;
+	printk(KERN_INFO "%s--\n", __func__);
 
 	return 0;
 }
@@ -1511,74 +2342,35 @@ int fimc_suspend(struct platform_device *pdev, pm_message_t state)
 	ctrl = get_fimc_ctrl(id);
 	pdata = to_fimc_plat(ctrl->dev);
 
+	printk(KERN_INFO "%s\n", __func__);
 	if (ctrl->out)
 		fimc_suspend_out(ctrl);
+
 	else if (ctrl->cap)
 		fimc_suspend_cap(ctrl);
 	else
 		ctrl->status = FIMC_OFF_SLEEP;
 
-	if (atomic_read(&ctrl->in_use) && ctrl->status != FIMC_OFF_SLEEP)
-		fimc_clk_en(ctrl, false);
+#if (!defined(CONFIG_EXYNOS_DEV_PD) || !defined(CONFIG_PM_RUNTIME))
+	if (atomic_read(&ctrl->in_use) && pdata->clk_off)
+		pdata->clk_off(pdev, &ctrl->clk);
+#endif
 
+	printk(KERN_INFO "%s--\n", __func__);
 	return 0;
 }
 
-static inline void fimc_resume_out_ctx(struct fimc_control *ctrl,
-				       struct fimc_ctx *ctx)
+int fimc_suspend_pd(struct device *dev)
 {
-	int ret = -1;
+	struct platform_device *pdev;
+	int ret;
+	pm_message_t state;
 
-	switch (ctx->overlay.mode) {
-	case FIMC_OVLY_DMA_AUTO:
-		if (ctx->status == FIMC_ON_IDLE_SLEEP) {
-			fimc_outdev_resume_dma(ctrl, ctx);
-			ret = fimc_outdev_set_ctx_param(ctrl, ctx);
-			if (ret < 0)
-				fimc_err("Fail: fimc_outdev_set_ctx_param\n");
+	state.event = 0;
+	pdev = to_platform_device(dev);
+	ret = fimc_suspend(pdev, state);
 
-			ctx->status = FIMC_STREAMON_IDLE;
-		} else if (ctx->status == FIMC_OFF_SLEEP) {
-			ctx->status = FIMC_STREAMOFF;
-		} else {
-			fimc_err("%s: Abnormal (%d)\n", __func__, ctx->status);
-		}
-
-		break;
-	case FIMC_OVLY_DMA_MANUAL:
-		if (ctx->status == FIMC_ON_IDLE_SLEEP) {
-			ret = fimc_outdev_set_ctx_param(ctrl, ctx);
-			if (ret < 0)
-				fimc_err("Fail: fimc_outdev_set_ctx_param\n");
-
-			ctx->status = FIMC_STREAMON_IDLE;
-
-		} else if (ctx->status == FIMC_OFF_SLEEP) {
-			ctx->status = FIMC_STREAMOFF;
-		} else {
-			fimc_err("%s: Abnormal (%d)\n", __func__, ctx->status);
-		}
-
-		break;
-	case FIMC_OVLY_NONE_SINGLE_BUF:		/* fall through */
-	case FIMC_OVLY_NONE_MULTI_BUF:
-		if (ctx->status == FIMC_ON_IDLE_SLEEP) {
-			ret = fimc_outdev_set_ctx_param(ctrl, ctx);
-			if (ret < 0)
-				fimc_err("Fail: fimc_outdev_set_ctx_param\n");
-
-			ctx->status = FIMC_STREAMON_IDLE;
-		} else if (ctx->status == FIMC_OFF_SLEEP) {
-			ctx->status = FIMC_STREAMOFF;
-		} else {
-			fimc_err("%s: Abnormal (%d)\n", __func__, ctx->status);
-		}
-
-		break;
-	default:
-		ctx->status = FIMC_STREAMOFF;
-		break;
-	}
+	return 0;
 }
 
 static inline int fimc_resume_out(struct fimc_control *ctrl)
@@ -1589,26 +2381,18 @@ static inline int fimc_resume_out(struct fimc_control *ctrl)
 
 	for (i = 0; i < FIMC_MAX_CTXS; i++) {
 		ctx = &ctrl->out->ctx[i];
-		fimc_resume_out_ctx(ctrl, ctx);
-
-		switch (ctx->status) {
-		case FIMC_STREAMON:
-			state |= FIMC_STREAMON;
-			break;
-		case FIMC_STREAMON_IDLE:
+		if (ctx->status == FIMC_ON_IDLE_SLEEP) {
+			ctx->status = FIMC_STREAMON_IDLE;
 			state |= FIMC_STREAMON_IDLE;
-			break;
-		case FIMC_STREAMOFF:
+		} else if (ctx->status == FIMC_OFF_SLEEP) {
+			ctx->status = FIMC_STREAMOFF;
 			state |= FIMC_STREAMOFF;
-			break;
-		default:
-			break;
+		} else {
+			fimc_err("%s: Abnormal (%d)\n", __func__, ctx->status);
 		}
 	}
 
-	if ((state & FIMC_STREAMON) == FIMC_STREAMON)
-		ctrl->status = FIMC_STREAMON;
-	else if ((state & FIMC_STREAMON_IDLE) == FIMC_STREAMON_IDLE)
+	if ((state & FIMC_STREAMON_IDLE) == FIMC_STREAMON_IDLE)
 		ctrl->status = FIMC_STREAMON_IDLE;
 	else
 		ctrl->status = FIMC_STREAMOFF;
@@ -1618,8 +2402,59 @@ static inline int fimc_resume_out(struct fimc_control *ctrl)
 
 static inline int fimc_resume_cap(struct fimc_control *ctrl)
 {
-	if (ctrl->cam->id == CAMERA_WB)
+	struct fimc_global *fimc = get_fimc_dev();
+	int tmp;
+	u32 timeout;
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+	struct platform_device *pdev = to_platform_device(ctrl->dev);
+#endif
+	printk(KERN_INFO "%s\n", __func__);
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+	if (ctrl->power_status == FIMC_POWER_OFF)
+		pm_runtime_get_sync(&pdev->dev);
+#endif
+	__raw_writel(S5P_INT_LOCAL_PWR_EN, S5P_PMU_CAM_CONF);
+	/*  Wait max 1ms */
+	timeout = 10;
+	while ((__raw_readl(S5P_PMU_CAM_CONF + 0x4) & S5P_INT_LOCAL_PWR_EN)
+	       != S5P_INT_LOCAL_PWR_EN) {
+		if (timeout == 0) {
+			printk(KERN_ERR "Power domain CAM enable failed.\n");
+			break;
+		}
+		timeout--;
+		udelay(100);
+	}
+
+	if (ctrl->cam->id == CAMERA_WB || ctrl->cam->id == CAMERA_WB_B) {
+		fimc_info1("%s : framecnt_seq : %d\n",
+			   __func__, ctrl->suspend_framecnt);
+		fimc_hwset_output_buf_sequence_all(ctrl,
+						   ctrl->suspend_framecnt);
+		tmp = fimc_hwget_output_buf_sequence(ctrl);
+		fimc_info1("%s : real framecnt_seq : %d\n", __func__, tmp);
+
 		fimc_streamon_capture((void *)ctrl);
+	} else {
+		if (ctrl->id == FIMC0 && ctrl->cam->initialized == 0) {
+			if (!ctrl->cam->use_isp) {
+				clk_set_rate(ctrl->cam->clk, ctrl->cam->clk_rate);
+				clk_enable(ctrl->cam->clk);
+				fimc->mclk_status = CAM_MCLK_ON;
+				fimc_info1("clock for camera: %d\n", ctrl->cam->clk_rate);
+
+				if (ctrl->cam->cam_power)
+					ctrl->cam->cam_power(1);
+
+				v4l2_subdev_call(ctrl->cam->sd, core, s_power, 1);
+				ctrl->cam->initialized = 1;
+			}
+
+		}
+	}
+	/* fimc_streamon_capture((void *)ctrl); */
+	ctrl->power_status = FIMC_POWER_ON;
+	printk(KERN_INFO "%s--\n", __func__);
 
 	return 0;
 }
@@ -1632,40 +2467,209 @@ int fimc_resume(struct platform_device *pdev)
 
 	ctrl = get_fimc_ctrl(id);
 	pdata = to_fimc_plat(ctrl->dev);
-
-	if (atomic_read(&ctrl->in_use) && ctrl->status != FIMC_OFF_SLEEP)
-		fimc_clk_en(ctrl, true);
+	printk(KERN_INFO "%s", __func__);
+	if (atomic_read(&ctrl->in_use) && pdata->clk_on)
+		pdata->clk_on(pdev, &ctrl->clk);
 
 	if (ctrl->out)
 		fimc_resume_out(ctrl);
+
 	else if (ctrl->cap)
 		fimc_resume_cap(ctrl);
 	else
 		ctrl->status = FIMC_STREAMOFF;
 
+	printk(KERN_INFO "%s--", __func__);
 	return 0;
 }
+
+int fimc_resume_pd(struct device *dev)
+{
+	struct platform_device *pdev;
+	int ret;
+
+	pdev = to_platform_device(dev);
+	ret = fimc_resume(pdev);
+	return 0;
+}
+
+
 #else
-#define fimc_suspend	NULL
-#define fimc_resume	NULL
+#define fimc_suspend		NULL
+#define fimc_resume		NULL
+#define fimc_suspend_pd		NULL
+#define fimc_resume_pd		NULL
 #endif
+
+static int fimc_runtime_suspend_cap(struct fimc_control *ctrl)
+{
+	struct platform_device *pdev = to_platform_device(ctrl->dev);
+	struct clk *pxl_async = NULL;
+	printk(KERN_INFO "%s FIMC%d\n", __func__, ctrl->id);
+
+	ctrl->power_status = FIMC_POWER_SUSPEND;
+
+	if (ctrl->cap && (ctrl->status != FIMC_STREAMOFF)) {
+		fimc_streamoff_capture((void *)ctrl);
+		ctrl->status = FIMC_STREAMOFF;
+	}
+	fimc_dbg("%s\n", __func__);
+
+	if (!ctrl->cam) {
+		fimc_err("%s: No capture device.\n", __func__);
+		return -ENODEV;
+	}
+
+	if (ctrl->cam->id == CAMERA_WB) {
+		fimc_info1("%s : writeback 0 suspend\n", __func__);
+		pxl_async = clk_get(&pdev->dev, "pxl_async0");
+		if (IS_ERR(pxl_async)) {
+			dev_err(&pdev->dev, "failed to get pxl_async\n");
+			return -ENODEV;
+		}
+
+		clk_disable(pxl_async);
+		clk_put(pxl_async);
+	} else if (ctrl->cam->id == CAMERA_WB_B) {
+		fimc_info1("%s : writeback 1 suspend\n", __func__);
+		pxl_async = clk_get(&pdev->dev, "pxl_async1");
+		if (IS_ERR(pxl_async)) {
+			dev_err(&pdev->dev, "failed to get pxl_async\n");
+			return -ENODEV;
+		}
+
+		clk_disable(pxl_async);
+		clk_put(pxl_async);
+	}
+	printk(KERN_INFO "%s FIMC%d --\n", __func__, ctrl->id);
+
+	return 0;
+}
+static int fimc_runtime_suspend(struct device *dev)
+{
+	struct fimc_control *ctrl;
+	struct platform_device *pdev;
+	struct s3c_platform_fimc *pdata;
+	int id;
+	int ret;
+
+	pdev = to_platform_device(dev);
+	id = pdev->id;
+	ctrl = get_fimc_ctrl(id);
+	pdata = to_fimc_plat(ctrl->dev);
+
+	if (ctrl->out) {
+		fimc_info1("%s: fimc m2m\n", __func__);
+	} else if (ctrl->cap) {
+		fimc_info1("%s: fimc capture\n", __func__);
+		fimc_runtime_suspend_cap(ctrl);
+	} else
+		fimc_err("%s : invalid fimc control\n", __func__);
+
+	if (pdata->clk_off) {
+		ret = pdata->clk_off(pdev, &ctrl->clk);
+		if (ret == 0)
+			ctrl->power_status = FIMC_POWER_OFF;
+	}
+
+	return 0;
+}
+
+static int fimc_runtime_resume_cap(struct fimc_control *ctrl)
+{
+	struct platform_device *pdev = to_platform_device(ctrl->dev);
+	struct clk *pxl_async = NULL;
+	printk(KERN_INFO "%s FIMC%d\n", __func__, ctrl->id);
+
+	if (!ctrl->cam) {
+		fimc_err("%s: No capture device.\n", __func__);
+		return -ENODEV;
+	}
+
+	if (ctrl->cam->id == CAMERA_WB) {
+		fimc_info1("%s : writeback 0 resume\n", __func__);
+		pxl_async = clk_get(&pdev->dev, "pxl_async0");
+		if (IS_ERR(pxl_async)) {
+			dev_err(&pdev->dev, "failed to get pxl_async\n");
+			return -ENODEV;
+		}
+
+		clk_enable(pxl_async);
+		clk_put(pxl_async);
+	} else if (ctrl->cam->id == CAMERA_WB_B) {
+		fimc_info1("%s : writeback 1 resume\n", __func__);
+		pxl_async = clk_get(&pdev->dev, "pxl_async1");
+		if (IS_ERR(pxl_async)) {
+			dev_err(&pdev->dev, "failed to get pxl_async\n");
+			return -ENODEV;
+		}
+
+		clk_enable(pxl_async);
+		clk_put(pxl_async);
+	}
+	printk(KERN_INFO "%s FIMC%d --\n", __func__, ctrl->id);
+	return 0;
+}
+static int fimc_runtime_resume(struct device *dev)
+{
+	struct fimc_control *ctrl;
+	struct s3c_platform_fimc *pdata;
+	struct platform_device *pdev;
+	int id, ret = 0;
+
+	pdev = to_platform_device(dev);
+	id = pdev->id;
+	ctrl = get_fimc_ctrl(id);
+
+	pdata = to_fimc_plat(ctrl->dev);
+	if (pdata->clk_on) {
+		ret = pdata->clk_on(pdev, &ctrl->clk);
+		if (ret == 0)
+			ctrl->power_status = FIMC_POWER_ON;
+	}
+
+	/* if status is FIMC_PROBE, not need to know differlence of out or
+	 * cap */
+
+	if (ctrl->out) {
+		/* do not need to sub function in m2m mode */
+		fimc_info1("%s: fimc m2m\n", __func__);
+	} else if (ctrl->cap) {
+		fimc_info1("%s: fimc cap\n", __func__);
+		fimc_runtime_resume_cap(ctrl);
+	}
+
+	return 0;
+}
+static const struct dev_pm_ops fimc_pm_ops = {
+	.suspend	= fimc_suspend_pd,
+	.resume		= fimc_resume_pd,
+	.runtime_suspend = fimc_runtime_suspend,
+	.runtime_resume = fimc_runtime_resume,
+};
 
 static struct platform_driver fimc_driver = {
 	.probe		= fimc_probe,
 	.remove		= fimc_remove,
+#if (!defined(CONFIG_EXYNOS_DEV_PD) || !defined(CONFIG_PM_RUNTIME))
 	.suspend	= fimc_suspend,
 	.resume		= fimc_resume,
+#endif
 	.driver		= {
 		.name	= FIMC_NAME,
 		.owner	= THIS_MODULE,
+#if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
+		.pm = &fimc_pm_ops,
+#else
+		.pm = NULL,
+#endif
+
 	},
 };
 
 static int fimc_register(void)
 {
-	platform_driver_register(&fimc_driver);
-
-	return 0;
+	return platform_driver_register(&fimc_driver);
 }
 
 static void fimc_unregister(void)

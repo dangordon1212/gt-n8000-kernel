@@ -12,16 +12,20 @@
  *
  */
 #include <linux/miscdevice.h>
+#include <linux/wakelock.h>
+#include <linux/notifier.h>
+#include <linux/mutex.h>
+#include <asm/byteorder.h>
 
 #ifndef __WIMAX_CMC732_H
 #define __WIMAX_CMC732_H
 
 #ifdef __KERNEL__
 
-#define WIMAX_POWER_SUCCESS		0
-#define WIMAX_ALREADY_POWER_ON		-1
-#define WIMAX_PROBE_FAIL		-2
-#define WIMAX_ALREADY_POWER_OFF		-3
+#define WIMAX_POWER_SUCCESS             0
+#define WIMAX_ALREADY_POWER_ON          -1
+#define WIMAX_POWER_FAIL		-2
+#define WIMAX_ALREADY_POWER_OFF         -3
 
 /* wimax mode */
 enum {
@@ -32,6 +36,14 @@ enum {
 	DM_MODE,
 	USB_MODE,
 	AUTH_MODE
+};
+
+/* wimax power state */
+enum {
+	CMC_POWER_OFF = 0,
+	CMC_POWER_ON,
+	CMC_POWERING_OFF,
+	CMC_POWERING_ON
 };
 
 /* wimax state */
@@ -47,22 +59,20 @@ enum {
 };
 
 struct wimax_cfg {
-	int			temp_tgid;	/* handles unexpected close */
-	struct wake_lock	wimax_wake_lock;	/* resume wake lock */
-	struct wake_lock	wimax_rxtx_lock;/* sdio wake lock */
-	struct wake_lock	wimax_tx_lock;/* sdio tx lock */
+	struct wake_lock	wimax_driver_lock;	/* resume wake lock */
+	struct mutex power_mutex; /*serialize power on/off*/
 	struct mutex suspend_mutex;
-	u8		wimax_status;
-	u8		wimax_mode;/* wimax mode (SDIO, USB, etc..) */
-	u8		sleep_mode;/* suspend mode (0: VI, 1: IDLE) */
-	u8		card_removed;/*
-						 * set if host has acknowledged
-						 * card removal
-						 */
+	struct work_struct		shutdown;
+	struct wimax732_platform_data *pdata;
+	struct notifier_block pm_notifier;
+	u8		power_state;
+	/* wimax mode (SDIO, USB, etc..) */
+	u8              wimax_mode;
 };
 
 struct wimax732_platform_data {
 	int (*power) (int);
+	void (*detect) (int);
 	void (*set_mode) (void);
 	void (*signal_ap_active) (int);
 	int (*get_sleep_mode) (void);
@@ -71,7 +81,13 @@ struct wimax732_platform_data {
 	struct wimax_cfg *g_cfg;
 	struct miscdevice swmxctl_dev;
 	int wimax_int;
+	void *adapter_data;
+	void (*restore_uart_path) (void);
+	int uart_sel;
+	int uart_sel1;
 };
+
+void s3c_bat_use_wimax(int onoff);
 
 #endif
 

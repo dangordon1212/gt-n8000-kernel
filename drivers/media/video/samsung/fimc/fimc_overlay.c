@@ -88,10 +88,12 @@ static int fimc_check_pos(struct fimc_control *ctrl,
 			  struct v4l2_format *f)
 {
 	if (ctx->win.w.width != f->fmt.win.w.width) {
-		fimc_err("%s: cannot change width\n", __func__);
+		fimc_err("%s: cannot change width(%d,%d)\n", __func__,
+				ctx->win.w.width, f->fmt.win.w.width);
 		return -EINVAL;
 	} else if (ctx->win.w.height != f->fmt.win.w.height) {
-		fimc_err("%s: cannot change height\n", __func__);
+		fimc_err("%s: cannot change height(%d,%d)\n", __func__,
+				ctx->win.w.height, f->fmt.win.w.height);
 		return -EINVAL;
 	}
 
@@ -101,11 +103,8 @@ static int fimc_check_pos(struct fimc_control *ctrl,
 static int fimc_change_fifo_position(struct fimc_control *ctrl,
 				     struct fimc_ctx *ctx) {
 	struct v4l2_rect fimd_rect;
-	struct fb_info *fbinfo;
-	struct s3cfb_window *win;
+	struct s3cfb_user_window window;
 	int ret = -1;
-
-	fbinfo = registered_fb[ctx->overlay.fb_id];
 
 	memset(&fimd_rect, 0, sizeof(struct v4l2_rect));
 
@@ -116,13 +115,12 @@ static int fimc_change_fifo_position(struct fimc_control *ctrl,
 	}
 
 	/* Update WIN position */
-	win->x = fimd_rect.left;
-	win->y = fimd_rect.top;
-
-	fbinfo->var.activate = FB_ACTIVATE_FORCE;
-	ret = fb_set_var(fbinfo, &fbinfo->var);
+	window.x = fimd_rect.left;
+	window.y = fimd_rect.top;
+	ret = s3cfb_direct_ioctl(ctrl->id, S3CFB_WIN_POSITION,
+			(unsigned long)&window);
 	if (ret < 0) {
-		fimc_err("fb_set_var fail (ret=%d)\n", ret);
+		fimc_err("direct_ioctl(S3CFB_WIN_POSITION) fail\n");
 		return -EINVAL;
 	}
 
@@ -166,6 +164,7 @@ int fimc_s_fmt_vid_overlay(struct file *filp, void *fh, struct v4l2_format *f)
 
 	default:
 		fimc_err("FIMC is running\n");
+		fimc_err("%s::FIMC is running(%d)\n", __func__, ctx->status);
 		return -EBUSY;
 	}
 
@@ -194,6 +193,7 @@ int fimc_g_fbuf(struct file *filp, void *fh, struct v4l2_framebuffer *fb)
 
 	switch (format) {
 	case V4L2_PIX_FMT_YUV420: /* fall through */
+	case V4L2_PIX_FMT_YVU420: /* fall through */
 	case V4L2_PIX_FMT_NV12:
 		bpp = 1;
 		break;
@@ -236,6 +236,7 @@ int fimc_s_fbuf(struct file *filp, void *fh, struct v4l2_framebuffer *fb)
 		ctx->fbuf.fmt.pixelformat = fb->fmt.pixelformat;
 
 		switch (format) {
+		case V4L2_PIX_FMT_NV21: 	/* fall through */
 		case V4L2_PIX_FMT_YUV420: /* fall through */
 		case V4L2_PIX_FMT_NV12:
 			bpp = 1;
@@ -258,7 +259,9 @@ int fimc_s_fbuf(struct file *filp, void *fh, struct v4l2_framebuffer *fb)
 		ctx->fbuf.fmt.pixelformat = fb->fmt.pixelformat;
 
 		switch (format) {
+		case V4L2_PIX_FMT_NV21:		/* fall through */
 		case V4L2_PIX_FMT_YUV420:	/* fall through */
+		case V4L2_PIX_FMT_YVU420:	/* fall through */
 		case V4L2_PIX_FMT_NV12:
 			bpp = 1;
 			break;
@@ -277,34 +280,6 @@ int fimc_s_fbuf(struct file *filp, void *fh, struct v4l2_framebuffer *fb)
 
 		ctx->overlay.mode = FIMC_OVLY_NONE_SINGLE_BUF;
 	} else {
-		int i;
-		struct s3cfb_window *win = NULL;
-		ctx->overlay.fb_id = -1;
-
-		for (i = 0; i < num_registered_fb; i++) {
-			win = (struct s3cfb_window *)registered_fb[i]->par;
-			if (win->id == ctrl->id) {
-				ctx->overlay.fb_id = i;
-				fimc_info2("%s: overlay.fb_id = %d\n",
-						__func__, ctx->overlay.fb_id);
-				break;
-			}
-		}
-
-		if (-1 == ctx->overlay.fb_id) {
-			fimc_err("%s: fb[%d] is not registered. " \
-					"must be registered for overlay\n",
-					__func__, ctrl->id);
-			return -1;
-		}
-
-		if (1 == win->enabled) {
-			fimc_err("%s: fb[%d] is already being used. " \
-					"must be not used for overlay\n",
-					__func__, ctrl->id);
-			return -1;
-		}
-
 		ctx->overlay.mode = FIMC_OVLY_NOT_FIXED;
 	}
 

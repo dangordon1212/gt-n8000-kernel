@@ -1,65 +1,48 @@
-/* arch/arm/plat-s5p/dev-mfc.c
+/* linux/arch/arm/plat-s5p/dev-mfc.c
  *
- * Copyright (c) 2010 Samsung Electronics Co., Ltd.
- *		http://www.samsung.com/
+ * Copyright (c) 2011 Samsung Electronics
  *
- * Device definition for MFC device
+ * Base S5P MFC resource and device definitions
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
-*/
+ */
 
 #include <linux/kernel.h>
-#include <linux/string.h>
+#include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
+#include <linux/interrupt.h>
+#include <linux/ioport.h>
 #include <mach/map.h>
-#include <asm/irq.h>
-#include <plat/mfc.h>
-#include <plat/devs.h>
-#include <plat/cpu.h>
-#include <plat/media.h>
-#include <mach/media.h>
 
-static struct s3c_platform_mfc s3c_mfc_pdata = {
-	.buf_phy_base[0] = 0,
-	.buf_phy_base[1] = 0,
-	.buf_phy_size[0] = 0,
-	.buf_phy_size[1] = 0,
-};
-
-static struct resource s3c_mfc_resources[] = {
+static struct resource s5p_mfc_resource[] = {
 	[0] = {
-		.start  = S5PV210_PA_MFC,
-		.end    = S5PV210_PA_MFC + S5PV210_SZ_MFC - 1,
-		.flags  = IORESOURCE_MEM,
+		.start	= S5P_PA_MFC,
+		.end	= S5P_PA_MFC + SZ_64K - 1,
+		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start  = IRQ_MFC,
-		.end    = IRQ_MFC,
-		.flags  = IORESOURCE_IRQ,
-	}
-};
-
-struct platform_device s3c_device_mfc = {
-	.name           = "s3c-mfc",
-	.id             = -1,
-	.num_resources  = ARRAY_SIZE(s3c_mfc_resources),
-	.resource       = s3c_mfc_resources,
-	.dev		= {
-		.platform_data = &s3c_mfc_pdata,
+		.start	= IRQ_MFC,
+		.end	= IRQ_MFC,
+		.flags	= IORESOURCE_IRQ,
 	},
 };
 
-void __init s3c_mfc_set_platdata(struct s3c_platform_mfc *pd)
-{
-	s3c_mfc_pdata.buf_phy_base[0] =
-		(u32)s5p_get_media_memory_bank(S5P_MDEV_MFC, 0);
-	s3c_mfc_pdata.buf_phy_size[0] =
-		(u32)s5p_get_media_memsize_bank(S5P_MDEV_MFC, 0);
-	s3c_mfc_pdata.buf_phy_base[1] =
-		(u32)s5p_get_media_memory_bank(S5P_MDEV_MFC, 1);
-	s3c_mfc_pdata.buf_phy_size[1] =
-		(u32)s5p_get_media_memsize_bank(S5P_MDEV_MFC, 1);
-}
+#if defined(CONFIG_DMA_CMA) && defined(CONFIG_USE_MFC_CMA)
+static u64 s5p_mfc_dma_mask = DMA_BIT_MASK(32);
+#endif
+
+struct platform_device s5p_device_mfc = {
+	.name		= "s3c-mfc",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(s5p_mfc_resource),
+	.resource	= s5p_mfc_resource,
+#if defined(CONFIG_DMA_CMA) && defined(CONFIG_USE_MFC_CMA)
+	.dev		= {
+		.dma_mask	= &s5p_mfc_dma_mask,
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+	},
+#endif
+};
 

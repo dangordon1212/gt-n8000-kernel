@@ -85,11 +85,6 @@ static unsigned long isolate_freepages_block(struct zone *zone,
 
 		if (!pfn_valid_within(blockpfn))
 			continue;
-
-		/* Watch for unexpected holes punched in the memmap */
-		if (!memmap_valid_within(blockpfn, page, zone))
-			continue;
-
 		nr_scanned++;
 
 		if (!PageBuddy(page))
@@ -184,11 +179,6 @@ static void isolate_freepages(struct zone *zone,
 		 * pages do not belong to a single zone.
 		 */
 		page = pfn_to_page(pfn);
-
-		/* Watch for unexpected holes punched in the memmap */
-		if (!memmap_valid_within(pfn, page, zone))
-			continue;
-
 		if (page_zone(page) != zone)
 			continue;
 
@@ -354,11 +344,6 @@ static isolate_migrate_t isolate_migratepages(struct zone *zone,
 		 * as memory compaction should not move pages between nodes.
 		 */
 		page = pfn_to_page(low_pfn);
-
-		/* Watch for unexpected holes punched in the memmap */
-		if (!memmap_valid_within(low_pfn, page, zone))
-			continue;
-
 		if (page_zone(page) != zone)
 			continue;
 
@@ -672,6 +657,10 @@ unsigned long try_to_compact_pages(struct zonelist *zonelist,
 	if (!order || !may_enter_fs || !may_perform_io)
 		return rc;
 
+#if defined(CONFIG_MACH_Q1_BD) || defined(CONFIG_GC1_00_BD)
+	/* Temporary log to get information whether the compaction works well */
+	printk(KERN_NOTICE "%s, order=%d, sync=%d\n", __func__, order, sync);
+#endif
 	count_vm_event(COMPACTSTALL);
 
 	/* Compact each zone in the list */
