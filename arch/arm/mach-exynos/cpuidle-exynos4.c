@@ -361,7 +361,7 @@ static int gps_is_running;
 
 void set_gps_uart_op(int onoff)
 {
-	pr_info("%s: %s\n", __func__, onoff ? "on" : "off");
+	pr_debug("%s: %s\n", __func__, onoff ? "on" : "off");
 	gps_is_running = onoff;
 }
 
@@ -378,13 +378,13 @@ static int check_idpram_op(void)
 	/* return !!gpio_get_value(GPIO_CP_DUMP_INT); */
 	int x1_2 = __raw_readl(S5P_VA_GPIO2 + 0xC24) & 4; /* GPX1(2) */
 	if (x1_2 != 0)
-		pr_info("%s x1_2 is %s\n", __func__, x1_2 ? "high" : "low");
+		pr_debug("%s x1_2 is %s\n", __func__, x1_2 ? "high" : "low");
 	return x1_2;
 #else
 	/* This pin is high when CP might be accessing dpram */
 	int cp_int = gpio_get_value(GPIO_CP_AP_DPRAM_INT);
 	if (cp_int != 0)
-		pr_info("%s cp_int is high.\n", __func__);
+		pr_debug("%s cp_int is high.\n", __func__);
 	return cp_int;
 #endif
 }
@@ -549,7 +549,7 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 	local_irq_disable();
 
 	if (log_en)
-		pr_info("+++aftr\n");
+		pr_debug("+++aftr\n");
 
 	do_gettimeofday(&before);
 
@@ -608,7 +608,7 @@ early_wakeup:
 	do_gettimeofday(&after);
 
 	if (log_en)
-		pr_info("---aftr\n");
+		pr_debug("---aftr\n");
 
 	local_irq_enable();
 	idle_time = (after.tv_sec - before.tv_sec) * USEC_PER_SEC +
@@ -648,7 +648,7 @@ static int exynos4_enter_core0_lpa(struct cpuidle_device *dev,
 #endif
 
 	if (log_en)
-		pr_info("+++lpa\n");
+		pr_debug("+++lpa\n");
 
 	do_gettimeofday(&before);
 
@@ -738,7 +738,7 @@ early_wakeup:
 	do_gettimeofday(&after);
 
 	if (log_en)
-		pr_info("---lpa\n");
+		pr_debug("---lpa\n");
 #ifdef CONFIG_INTERNAL_MODEM_IF
 	gpio_set_value(GPIO_PDA_ACTIVE, 1);
 #endif

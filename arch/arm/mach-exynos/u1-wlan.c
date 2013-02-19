@@ -158,7 +158,7 @@ static void s3c_config_gpio_alive_table
 (*gpio_table)[4])
 {
 	u32 i, gpio;
-	printk(KERN_INFO"gpio_table = [%d] \r\n" , array_size);
+	printk(KERN_INFO"gpio_table = [%d]\n" , array_size);
 	for (i = 0; i < array_size; i++) {
 		gpio = gpio_table[i][0];
 		s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(gpio_table[i][1]));

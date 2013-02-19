@@ -1424,8 +1424,8 @@ int fimc_s_fmt_vid_private(struct file *file, void *fh, struct v4l2_format *f)
 #if defined(CONFIG_MACH_GC1)
 		mbus_fmt->field = pix->priv;
 #endif
-		printk(KERN_INFO "%s mbus_fmt->width = %d, height = %d,\n",
-			__func__,mbus_fmt->width ,mbus_fmt->height);
+		fimc_dbg("mbus_fmt->width = %d, height = %d,\n",
+			mbus_fmt->width ,mbus_fmt->height);
 
 		depth = fimc_fmt_depth(ctrl, pix);
 		if (depth == 0) {
@@ -1465,8 +1465,8 @@ int fimc_s_fmt_vid_private(struct file *file, void *fh, struct v4l2_format *f)
 		mbus_fmt->field = f->fmt.pix.field;
 		mbus_fmt->colorspace = V4L2_COLORSPACE_SRGB;
 
-		printk(KERN_INFO "%s mbus_fmt->width = %d, height = %d, \n",
-			__func__,mbus_fmt->width ,mbus_fmt->height);
+		fimc_dbg("mbus_fmt->width = %d, height = %d, \n",
+			mbus_fmt->width ,mbus_fmt->height);
 		if (fimc_cam_use)
 			ret = v4l2_subdev_call(ctrl->is.sd, video,
 					s_mbus_fmt, mbus_fmt);
@@ -1490,7 +1490,7 @@ int fimc_s_fmt_vid_capture(struct file *file, void *fh, struct v4l2_format *f)
 	is_ctrl.id = 0;
 	is_ctrl.value = 0;
 
-	printk(KERN_INFO "%s\n", __func__);
+	fimc_dbg("\n");
 
 	if (!ctrl->cap) {
 		fimc_err("%s: No capture structure."  \
@@ -1568,7 +1568,7 @@ int fimc_s_fmt_vid_capture(struct file *file, void *fh, struct v4l2_format *f)
 		cap->lastirq = 0;
 	}
 
-	printk(KERN_INFO "fimc%d s_fmt width = %d, height = %d\n", ctrl->id, \
+	fimc_dbg("fimc%d s_fmt width = %d, height = %d\n", ctrl->id, \
 				cap->fmt.width, cap->fmt.height);
 
 	/* WriteBack doesn't have subdev_call */
@@ -1596,7 +1596,7 @@ int fimc_s_fmt_vid_capture(struct file *file, void *fh, struct v4l2_format *f)
 	fimc_hwset_reset(ctrl);
 
 	mutex_unlock(&ctrl->v4l2_lock);
-	printk(KERN_INFO "%s -- FIMC%d\n", __func__, ctrl->id);
+	fimc_dbg("-- FIMC%d\n", ctrl->id);
 
 	return ret;
 }
@@ -2564,7 +2564,7 @@ int fimc_stop_capture(struct fimc_control *ctrl)
 	}
 
 	if (!ctrl->cap) {
-		fimc_err("%s: No cappure format.\n", __func__);
+		fimc_err("%s: No capture format.\n", __func__);
 		return -ENODEV;
 	}
 
@@ -2637,7 +2637,7 @@ int fimc_streamon_capture(void *fh)
 
 	struct s3c_platform_fimc *pdata = to_fimc_plat(ctrl->dev);
 
-	printk(KERN_INFO "%s++ fimc%d\n", __func__, ctrl->id);
+	fimc_dbg("++ fimc%d\n", ctrl->id);
 #ifdef CONFIG_SLP
 	cam_frmsize.index = -1;
 #endif
@@ -2691,8 +2691,8 @@ int fimc_streamon_capture(void *fh)
 					cam->height
 						= cam->window.height
 						= cam_frmsize.discrete.height;
-					printk(KERN_INFO "%s cam real size width = %d,"
-						"height = %d\n",__func__,  ctrl->cam->width,
+					fimc_dbg("cam real size width = %d,"
+						"height = %d\n", ctrl->cam->width,
 						ctrl->cam->height);
 				}
 			}
@@ -2812,7 +2812,7 @@ int fimc_streamon_capture(void *fh)
 
 	if (!ctrl->is.sd && cap->movie_mode &&
 		!((cam->width == 880 && cam->height == 720))) {
-		printk(KERN_INFO "\n\n\n%s pm_qos_req is called..\n", __func__ );
+		fimc_dbg("\n\n\n pm_qos_req is called..\n");
 		/*dev_lock(ctrl->bus_dev, ctrl->dev, (unsigned long)400200);*/
 		pm_qos_add_request(&bus_qos_pm_qos_req, PM_QOS_BUS_QOS, 1);
 
@@ -2906,7 +2906,7 @@ int fimc_streamon_capture(void *fh)
 
 	if (ctrl->is.sd && fimc_cam_use)
 		ret = v4l2_subdev_call(ctrl->is.sd, video, s_stream, 1);
-	printk(KERN_INFO "%s-- fimc%d\n", __func__, ctrl->id);
+	fimc_dbg("-- fimc%d\n", ctrl->id);
 
 	/* if available buffer did not remained */
 	return 0;
@@ -2921,7 +2921,7 @@ int fimc_streamoff_capture(void *fh)
 	int ret = 0;
 	void __iomem *qos_regs;
 
-	printk(KERN_INFO "%s++ fimc%d\n", __func__, ctrl->id);
+	fimc_dbg("++ fimc%d\n", ctrl->id);
 
 	if (ctrl->status == FIMC_STREAMOFF) {
 		fimc_err("%s: fimc%d already stopped.\n", __func__, ctrl->id);
@@ -2972,9 +2972,9 @@ int fimc_streamoff_capture(void *fh)
 			else
 				s3c_csis_stop(CSI_CH_1);
 		}
-		fimc_err("fimc_hwset_reset in\n");
+		fimc_dbg("fimc_hwset_reset in\n");
 		fimc_hwset_reset(ctrl);
-		fimc_err("fimc_hwset_reset out\n");
+		fimc_dbg("fimc_hwset_reset out\n");
 #ifdef CONFIG_VIDEO_IMPROVE_STREAMOFF
 		if (ctrl->cam->sd && (get_fimc_dev()->active_camera != 0))
 #else
@@ -2987,7 +2987,7 @@ int fimc_streamoff_capture(void *fh)
 
 	if (!ctrl->is.sd && cap->movie_mode &&
 		!(ctrl->cam->width == 880 && ctrl->cam->height == 720)) {
-		printk(KERN_INFO "\n\n\n%s pm_qos_req is removed..\n", __func__ );
+		fimc_dbg("pm_qos_req is removed..\n");
 		pm_qos_remove_request(&bus_qos_pm_qos_req);
 		/*dev_unlock(ctrl->bus_dev, ctrl->dev);*/
 
@@ -3014,7 +3014,7 @@ int fimc_streamoff_capture(void *fh)
 				ctrl->cam->initialized = 0;
 		}
 	}
-	printk(KERN_INFO "%s-- fimc%d\n", __func__, ctrl->id);
+	fimc_dbg("-- fimc%d\n", ctrl->id);
 	return 0;
 }
 
@@ -3183,7 +3183,7 @@ int fimc_qbuf_capture(void *fh, struct v4l2_buffer *b)
 				available_bufnum =
 					fimc_hwget_number_of_bits(framecnt_seq);
 				if (available_bufnum >= 2) {
-					printk(KERN_INFO "fimc_qbuf_capture start again\n");
+					fimc_dbg("fimc_qbuf_capture start again\n");
 					cap->cnt = 0;
 					fimc_start_capture(ctrl);
 					ctrl->status = FIMC_STREAMON;

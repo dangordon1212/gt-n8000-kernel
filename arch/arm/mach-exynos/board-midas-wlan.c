@@ -150,7 +150,7 @@ static unsigned int wlan_sdio_off_table[][4] = {
 static void s3c_config_gpio_alive_table(int array_size, unsigned int (*gpio_table)[4])
 {
 	u32 i, gpio;
-	printk("gpio_table = [%d] \r\n" , array_size);
+	printk("gpio_table = [%d]\n" , array_size);
 	for (i = 0; i < array_size; i++) {
 		gpio = gpio_table[i][0];
 		s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(gpio_table[i][1]));

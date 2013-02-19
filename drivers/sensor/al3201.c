@@ -375,7 +375,7 @@ static ssize_t al3201_poll_delay_store(struct device *dev,
 	if (err < 0)
 		return err;
 
-	pr_info("%s, new delay = %lldns, old delay = %lldns\n", __func__,
+	pr_debug("%s, new delay = %lldns, old delay = %lldns\n", __func__,
 	       new_delay, ktime_to_ns(data->light_poll_delay));
 
 	if (new_delay != ktime_to_ns(data->light_poll_delay)) {

@@ -1033,7 +1033,7 @@ void sec_control_pm(dhd_pub_t *dhd, uint *power_mode)
 			return;
 		}
 		kernel_read(fp, fp->f_pos, &power_val, 1);
-		DHD_ERROR(("POWER_VAL = %c \r\n", power_val));
+		DHD_INFO(("POWER_VAL = %c\n", power_val));
 
 		if (power_val == '0') {
 #ifdef ROAM_ENABLE

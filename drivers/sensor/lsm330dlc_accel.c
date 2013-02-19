@@ -30,7 +30,7 @@
 #include <linux/wakelock.h>
 
 /* For debugging */
-#if 1
+#if 0
 #define accel_dbgmsg(str, args...)\
 	pr_info("%s: " str, __func__, ##args)
 #else

@@ -224,7 +224,7 @@ void set_hsic_lpa_states(int states)
 		case STATE_HSIC_LPA_ENTER:
 			gpio_set_value(modem_link_pm_data.gpio_link_active, 0);
 			gpio_set_value(umts_modem_data.gpio_pda_active, 0);
-			pr_info(LOG_TAG "set hsic lpa enter: "
+			pr_debug(LOG_TAG "set hsic lpa enter: "
 				"active state (%d)" ", pda active (%d)\n",
 				gpio_get_value(
 					modem_link_pm_data.gpio_link_active),
@@ -233,7 +233,7 @@ void set_hsic_lpa_states(int states)
 			break;
 		case STATE_HSIC_LPA_WAKE:
 			gpio_set_value(umts_modem_data.gpio_pda_active, 1);
-			pr_info(LOG_TAG "set hsic lpa wake: "
+			pr_debug(LOG_TAG "set hsic lpa wake: "
 				"pda active (%d)\n",
 				gpio_get_value(umts_modem_data.gpio_pda_active)
 				);
@@ -241,7 +241,7 @@ void set_hsic_lpa_states(int states)
 		case STATE_HSIC_LPA_PHY_INIT:
 			gpio_set_value(umts_modem_data.gpio_pda_active, 1);
 			set_slave_wake();
-			pr_info(LOG_TAG "set hsic lpa phy init: "
+			pr_debug(LOG_TAG "set hsic lpa phy init: "
 				"slave wake-up (%d)\n",
 				gpio_get_value(
 					modem_link_pm_data.gpio_link_slavewake)

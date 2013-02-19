@@ -290,7 +290,7 @@ int exynos_cpufreq_lock(unsigned int nId,
 
 	mutex_lock(&set_cpu_freq_lock);
 	if (g_cpufreq_lock_id & (1 << nId)) {
-		printk(KERN_ERR "%s:Device [%d] already locked cpufreq\n",
+		printk(KERN_DEBUG "%s:Device [%d] already locked cpufreq\n",
 				__func__,  nId);
 		mutex_unlock(&set_cpu_freq_lock);
 		return 0;

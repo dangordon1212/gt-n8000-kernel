@@ -8060,10 +8060,11 @@ static s32 wl_escan_handler(struct wl_priv *wl,
 		(!wl_get_drv_status(wl, SCANNING, ndev) &&
 		!wl->sched_scan_running)) {
 #if defined(DUAL_ESCAN_RESULT_BUFFER)
-		WL_ERR(("escan is not ready ndev %p wl->escan_on %d"
-			" drv_status 0x%x e_type %d e_states %d\n",
-			ndev, wl->escan_on, wl_get_drv_status(wl, SCANNING, ndev),
-			ntoh32(e->event_type), ntoh32(e->status)));
+		if (printk_ratelimit())
+			WL_ERR(("escan is not ready ndev %p wl->escan_on %d"
+				" drv_status 0x%x e_type %d e_states %d\n",
+				ndev, wl->escan_on, wl_get_drv_status(wl, SCANNING, ndev),
+				ntoh32(e->event_type), ntoh32(e->status)));
 #else
 		WL_ERR(("escan is not ready ndev %p wl->escan_on %d drv_status 0x%x\n",
 			ndev, wl->escan_on, wl_get_drv_status(wl, SCANNING, ndev)));
