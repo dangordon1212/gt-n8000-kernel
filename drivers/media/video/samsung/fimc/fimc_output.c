@@ -363,7 +363,7 @@ static int fimc_outdev_set_src_buf(struct fimc_control *ctrl,
 #ifdef	CONFIG_VIDEO_SAMSUNG_USE_DMA_MEM
 	ctrl->mem.size = size * FIMC_OUTBUFS;
 	err = cma_info(&mem_info, ctrl->dev, 0);
-	printk(KERN_DEBUG "%s : [cma_info] start_addr : 0x%x, end_addr : 0x%x, "
+	fimc_debug("%s : [cma_info] start_addr : 0x%x, end_addr : 0x%x, "
 			"total_size : 0x%x, free_size : 0x%x req_size : 0x%x\n",
 			__func__, mem_info.lower_bound, mem_info.upper_bound,
 			mem_info.total_size, mem_info.free_size,
@@ -472,7 +472,7 @@ static int fimc_outdev_set_dst_buf(struct fimc_control *ctrl,
 #ifdef	CONFIG_VIDEO_SAMSUNG_USE_DMA_MEM
 	ctrl->mem.size = size * FIMC_OUTBUFS;
 	err = cma_info(&mem_info, ctrl->dev, 0);
-	printk(KERN_DEBUG "%s : [cma_info] start_addr : 0x%x, end_addr : 0x%x, "
+	fimc_debug("%s : [cma_info] start_addr : 0x%x, end_addr : 0x%x, "
 			"total_size : 0x%x, free_size : 0x%x req_size=0x%x\n",
 			__func__, mem_info.lower_bound, mem_info.upper_bound,
 			mem_info.total_size, mem_info.free_size,

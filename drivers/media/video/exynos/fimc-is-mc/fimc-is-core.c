@@ -588,9 +588,9 @@ static int fimc_is_front_s_stream(struct v4l2_subdev *sd, int enable)
 	int ret;
 
 	if (enable) {
-		printk(KERN_INFO "fimc_is_front_s_stream : ON\n");
+		dbg("fimc_is_front_s_stream : ON\n");
 	} else {
-		printk(KERN_INFO "fimc_is_front_s_stream : OFF\n");
+		dbg("fimc_is_front_s_stream : OFF\n");
 		fimc_is_hw_subip_poweroff(isp);
 		ret = wait_event_timeout(isp->irq_queue,
 			!test_bit(FIMC_IS_PWR_ST_POWER_ON_OFF, &isp->power),

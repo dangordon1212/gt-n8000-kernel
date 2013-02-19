@@ -125,7 +125,7 @@ static int usb_init_communication(struct link_device *ld,
 	struct task_struct *task = get_current();
 	char str[TASK_COMM_LEN];
 
-	mif_info("%d:%s\n", task->pid, get_task_comm(str, task));
+	mif_debug("%d:%s\n", task->pid, get_task_comm(str, task));
 
 	/* Send IPC Start ASCII 'a' */
 	if (iod->id == 0x1)
@@ -521,7 +521,7 @@ static void usb_tx_work(struct work_struct *work)
 		 * count allways positive and never enter to L2
 		 */
 		if (!usb_ld->if_usb_connected) {
-			mif_info("link is available, but if  was not readey\n");
+			mif_info("link is available, but if  was not ready\n");
 			goto retry_tx_work;
 		}
 		pm_runtime_get_sync(&usb_ld->usbdev->dev);
@@ -652,11 +652,11 @@ static void link_pm_runtime_start(struct work_struct *work)
 	}
 
 	if (pm_data->usb_ld->usbdev && dev->parent) {
-		mif_info("rpm_status: %d\n",
+		mif_debug("rpm_status: %d\n",
 			dev->power.runtime_status);
 		pm_runtime_set_autosuspend_delay(dev, 200);
 		hdev = usbdev->bus->root_hub->dev.parent;
-		mif_info("EHCI runtime %s, %s\n", dev_driver_string(hdev),
+		mif_debug("EHCI runtime %s, %s\n", dev_driver_string(hdev),
 			dev_name(hdev));
 		pm_runtime_allow(dev);
 		pm_runtime_allow(hdev);/*ehci*/
@@ -741,11 +741,11 @@ static inline int link_pm_slave_wake(struct link_pm_data *pm_data)
 				!= HOSTWAKE_TRIGLEVEL) {
 		if (gpio_get_value(pm_data->gpio_link_slavewake)) {
 			gpio_set_value(pm_data->gpio_link_slavewake, 0);
-			mif_info("gpio [SWK] set [0]\n");
+			mif_debug("gpio [SWK] set [0]\n");
 			mdelay(5);
 		}
 		gpio_set_value(pm_data->gpio_link_slavewake, 1);
-		mif_info("gpio [SWK] set [1]\n");
+		mif_debug("gpio [SWK] set [1]\n");
 		mdelay(5);
 
 		/* wait host wake signal*/
@@ -814,7 +814,7 @@ static void link_pm_runtime_work(struct work_struct *work)
 		break;
 	case RPM_SUSPENDING:
 		/* Checking the usb_runtime_suspend running time.*/
-		mif_info("rpm_states=%d", dev->power.runtime_status);
+		mif_debug("rpm_states=%d", dev->power.runtime_status);
 		msleep(20);
 		break;
 	default:
@@ -860,7 +860,7 @@ static irqreturn_t link_pm_irq_handler(int irq, void *data)
 		runtime pm status changes to ACTIVE
 	*/
 	value = gpio_get_value(pm_data->gpio_link_hostwake);
-	mif_info("gpio [HWK] get [%d]\n", value);
+	mif_debug("gpio [HWK] get [%d]\n", value);
 
 	/*
 	* igonore host wakeup interrupt at suspending kernel
@@ -1123,7 +1123,7 @@ static void if_usb_disconnect(struct usb_interface *intf)
 	struct device *dev, *hdev;
 	struct link_device *ld = &devdata->usb_ld->ld;
 
-	mif_info("\n");
+	mif_debug("\n");
 
 	if (devdata->disconnected)
 		return;

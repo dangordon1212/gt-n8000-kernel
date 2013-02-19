@@ -174,7 +174,7 @@ out:
 		set_fs(old_fs);
 	}
 #endif
-	printk(KERN_INFO "FIMC_IS FW loaded = 0x%08x\n", dev->mem.base);
+	dbg("FIMC_IS FW loaded = 0x%08x\n", dev->mem.base);
 	return ret;
 }
 
@@ -365,7 +365,7 @@ int fimc_is_s_power(struct v4l2_subdev *sd, int on)
 	struct device *dev = &is_dev->pdev->dev;
 	int ret = 0;
 
-	printk(KERN_INFO "%s++ %d\n", __func__, on);
+	dbg("%s++ %d\n", __func__, on);
 	if (on) {
 		if (test_bit(IS_PWR_ST_POWERON, &is_dev->power)) {
 			err("FIMC-IS was already power on state!!\n");
@@ -383,7 +383,7 @@ int fimc_is_s_power(struct v4l2_subdev *sd, int on)
 			err("FIMC-IS was already power off state!!\n");
 			err("Close sensor - %d\n", is_dev->sensor.id);
 			fimc_is_hw_close_sensor(is_dev, 0);
-			printk(KERN_INFO "%s Wait close sensor interrupt\n", __func__);
+			dbg("%s Wait close sensor interrupt\n", __func__);
 			ret = wait_event_timeout(is_dev->irq_queue1,
 				!test_bit(IS_ST_OPEN_SENSOR,
 				&is_dev->power), FIMC_IS_SHUTDOWN_TIMEOUT);
@@ -394,17 +394,17 @@ int fimc_is_s_power(struct v4l2_subdev *sd, int on)
 				is_dev->p_region_index1 = 0;
 				is_dev->p_region_index2 = 0;
 				atomic_set(&is_dev->p_region_num, 0);
-				printk(KERN_INFO "%s already power off return\n", __func__);
+				dbg("%s already power off return\n", __func__);
 				return ret;
 			}
 		}
 
-		printk(KERN_INFO "%s sub ip power off ++\n", __func__);
+		dbg("%s sub ip power off ++\n", __func__);
 
 		if (!test_bit(IS_PWR_SUB_IP_POWER_OFF, &is_dev->power)) {
-			printk(KERN_INFO "%s Sub ip is alive\n", __func__);
+			dbg("%s Sub ip is alive\n", __func__);
 			fimc_is_hw_subip_poweroff(is_dev);
-			printk(KERN_INFO "%s Wait Sub ip power off\n", __func__);
+			dbg("%s Wait Sub ip power off\n", __func__);
 			ret = wait_event_timeout(is_dev->irq_queue1,
 				test_bit(IS_PWR_SUB_IP_POWER_OFF,
 				&is_dev->power), FIMC_IS_SHUTDOWN_TIMEOUT);
@@ -415,10 +415,10 @@ int fimc_is_s_power(struct v4l2_subdev *sd, int on)
 		} else
 			printk(KERN_INFO "%s sub ip was already power off state!!\n", __func__);
 
-		printk(KERN_INFO "%s sub ip power off --\n", __func__);
+		dbg("%s sub ip power off --\n", __func__);
 
 		fimc_is_hw_a5_power(is_dev, 0);
-		printk(KERN_INFO "A5 power off\n");
+		dbg("A5 power off\n");
 		ret = pm_runtime_put_sync(dev);
 
 		is_dev->sensor.id = 0;
@@ -433,7 +433,7 @@ int fimc_is_s_power(struct v4l2_subdev *sd, int on)
 		is_dev->af.mode = IS_FOCUS_MODE_IDLE;
 		set_bit(IS_PWR_ST_POWEROFF, &is_dev->power);
 	}
-	printk(KERN_INFO "%s --\n", __func__);
+	dbg("%s --\n", __func__);
 
 	return ret;
 }
@@ -3697,7 +3697,7 @@ static int fimc_is_v4l2_mode_change(struct fimc_is_dev *dev, int value)
 		fimc_is_hw_set_low_poweroff(dev, true);
 		return -EINVAL;
 	}
-	printk(KERN_INFO "CAC margin - %d, %d\n", dev->sensor.offset_x,
+	dbg("CAC margin - %d, %d\n", dev->sensor.offset_x,
 							dev->sensor.offset_y);
 	return ret;
 }
@@ -4319,7 +4319,7 @@ static int fimc_is_s_mbus_fmt(struct v4l2_subdev *sd,
 	int ret = 0, format;
 	u32 frametime_max = 0;
 
-	printk(KERN_INFO "FIMC-IS s_fmt = %d,%d\n", mf->width, mf->height);
+	dbg("FIMC-IS s_fmt = %d,%d\n", mf->width, mf->height);
 	/* scenario ID setting */
 	switch (mf->field) {
 	case 0:

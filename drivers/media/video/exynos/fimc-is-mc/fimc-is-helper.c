@@ -846,7 +846,7 @@ void fimc_is_hw_a5_power(struct fimc_is_dev *isp, int on)
 	struct device *dev = &isp->pdev->dev;
 #endif
 
-	printk(KERN_INFO "%s(%d)\n", __func__, on);
+	dbg("%s(%d)\n", __func__, on);
 
 #if defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME)
 	if (on)

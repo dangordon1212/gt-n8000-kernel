@@ -154,7 +154,7 @@ static void smb347_test_read(void)
 	struct smb347_chg_data *chg = smb347_chg;
 	u8 data = 0;
 	u32 addr = 0;
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 	/* Only for P4C rev0.2, Check vbus for opeartion charger */
 	if (!smb347_check_powersource(chg))
@@ -162,30 +162,30 @@ static void smb347_test_read(void)
 
 	for (addr = 0; addr <= 0x0E; addr++) {
 		smb347_i2c_read(chg->client, addr, &data);
-		pr_info("smb347 addr : 0x%02x data : 0x%02x\n", addr, data);
+		pr_debug("smb347 addr : 0x%02x data : 0x%02x\n", addr, data);
 	}
 
 	for (addr = 0x30; addr <= 0x3F; addr++) {
 		smb347_i2c_read(chg->client, addr, &data);
-		pr_info("smb347 addr : 0x%02x data : 0x%02x\n", addr, data);
+		pr_debug("smb347 addr : 0x%02x data : 0x%02x\n", addr, data);
 	}
 }
 
 static void smb347_enable_charging(struct smb347_chg_data *chg)
 {
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	smb347_i2c_write(chg->client, SMB347_COMMAND_A, 0x82);
 }
 
 static void smb347_disable_charging(struct smb347_chg_data *chg)
 {
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	smb347_i2c_write(chg->client, SMB347_COMMAND_A, 0x80);
 }
 
 static void smb347_charger_init(struct smb347_chg_data *chg)
 {
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 	/* Only for P4C rev0.2, Check vbus for opeartion charger */
 	if (!smb347_check_powersource(chg))
@@ -252,7 +252,7 @@ static int smb347_get_charging_state(void)
 	u8 data = 0;
 
 	smb347_i2c_read(chg->client, SMB347_STATUS_C, &data);
-	pr_info("%s : 0x%xh(0x%02x)\n", __func__, SMB347_STATUS_C, data);
+	pr_debug("%s : 0x%xh(0x%02x)\n", __func__, SMB347_STATUS_C, data);
 
 	if (data & SMB347_CHARGING_ENABLE)
 		status = POWER_SUPPLY_STATUS_CHARGING;
@@ -276,7 +276,7 @@ static int smb347_get_charger_is_full(void)
 	u8 data = 0;
 
 	smb347_i2c_read(chg->client, SMB347_STATUS_C, &data);
-	pr_info("%s : 0x%xh(0x%02x)\n", __func__, SMB347_STATUS_C, data);
+	pr_debug("%s : 0x%xh(0x%02x)\n", __func__, SMB347_STATUS_C, data);
 
 	if (data & SMB347_CHARGER_ERROR)
 		status = POWER_SUPPLY_STATUS_DISCHARGING;
@@ -289,7 +289,7 @@ static int smb347_get_charger_is_full(void)
 static void smb347_set_charging_state(int enable, int charging_mode)
 {
 	struct smb347_chg_data *chg = smb347_chg;
-	pr_info("%s : enable(%d), charging_mode(%d)\n",
+	pr_debug("%s : enable(%d), charging_mode(%d)\n",
 		__func__, enable, charging_mode);
 
 	if (enable) {
@@ -505,7 +505,7 @@ static int smb347_i2c_probe
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE))
 		return -EIO;
 
-	pr_info("%s : smb347 Charger Driver Loading\n", __func__);
+	pr_debug("%s : smb347 Charger Driver Loading\n", __func__);
 
 	chg = kzalloc(sizeof(struct smb347_chg_data), GFP_KERNEL);
 	if (!chg)
@@ -530,7 +530,7 @@ static int smb347_i2c_probe
 		goto err_pdata;
 	}
 
-	pr_info("register callback functions!\n");
+	pr_debug("register callback functions!\n");
 	chg->callbacks->set_charging_state = smb347_set_charging_state;
 	chg->callbacks->get_charging_state = smb347_get_charging_state;
 	chg->callbacks->set_charging_current = smb347_set_charging_current;

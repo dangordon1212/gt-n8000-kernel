@@ -1543,13 +1543,13 @@ static void display_low_batt_comp_cnt(struct i2c_client *client)
 {
 	struct sec_fuelgauge_info *fuelgauge = i2c_get_clientdata(client);
 
-	pr_info("Check Array(%s): [%d, %d], [%d, %d], ",
+	pr_debug("Check Array(%s): [%d, %d], [%d, %d], ",
 			get_battery_data(fuelgauge).type_str,
 			fuelgauge->info.low_batt_comp_cnt[0][0],
 			fuelgauge->info.low_batt_comp_cnt[0][1],
 			fuelgauge->info.low_batt_comp_cnt[1][0],
 			fuelgauge->info.low_batt_comp_cnt[1][1]);
-	pr_info("[%d, %d], [%d, %d], [%d, %d]\n",
+	pr_debug("[%d, %d], [%d, %d], [%d, %d]\n",
 			fuelgauge->info.low_batt_comp_cnt[2][0],
 			fuelgauge->info.low_batt_comp_cnt[2][1],
 			fuelgauge->info.low_batt_comp_cnt[3][0],

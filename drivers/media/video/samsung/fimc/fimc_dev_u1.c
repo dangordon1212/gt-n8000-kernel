@@ -470,7 +470,7 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 	static struct timeval curr_time, before_time;
 	if (ctrl->id == FIMC2) {
 		do_gettimeofday(&curr_time);
-		printk(KERN_INFO "%s : time : %ld\n", __func__,
+		printk(KERN_DEBUG "%s : time : %ld\n", __func__,
 				curr_time.tv_usec - before_time.tv_usec);
 		before_time.tv_usec = curr_time.tv_usec;
 	}
@@ -482,7 +482,7 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 	if (pdata->hw_ver >= 0x51) {
 		pp = fimc_hwget_before_frame_count(ctrl);
 		if (cap->cnt < 20) {
-			printk(KERN_INFO "%s[%d], fimc%d, cnt[%d]\n", __func__,
+			fimc_dbg("%s[%d], fimc%d, cnt[%d]\n", __func__,
 							pp, ctrl->id, cap->cnt);
 			cap->cnt++;
 		}
@@ -508,7 +508,7 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 				ctrl->cap->lastirq = 0;
 				fimc_stop_capture(ctrl);
 				ctrl->status = FIMC_BUFFER_STOP;
-				printk(KERN_INFO "fimc_irq_cap[%d] available_bufnum = %d\n",
+				printk(KERN_DEBUG "fimc_irq_cap[%d] available_bufnum = %d\n",
 					ctrl->id, available_bufnum);
 			}
 		} else {
@@ -596,8 +596,8 @@ struct fimc_control *fimc_register_controller(struct platform_device *pdev)
 #ifdef CONFIG_ION_EXYNOS
 	}
 #endif
-	printk(KERN_INFO "ctrl->mem.size = 0x%x\n", ctrl->mem.size);
-	printk(KERN_INFO "ctrl->mem.base = 0x%x\n", ctrl->mem.base);
+	fimc_dbg("ctrl->mem.size = 0x%x\n", ctrl->mem.size);
+	fimc_dbg("ctrl->mem.base = 0x%x\n", ctrl->mem.base);
 
 	ctrl->mem.curr = ctrl->mem.base;
 	ctrl->status = FIMC_STREAMOFF;

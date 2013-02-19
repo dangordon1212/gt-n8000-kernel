@@ -662,11 +662,11 @@ void s3cfb_switch_dual_lcd(int lcd_sel)
 	struct s3cfb_global *fbdev = fbfimd->fbdev[0];
 	int prev_lcd_sel = s5p_dsim_get_lcd_sel_value();
 
-	printk(KERN_DEBUG "%s, switching lcd_sel from:%s to:%s\n",
+	pr_debug("%s, switching lcd_sel from:%s to:%s\n",
 		__func__, prev_lcd_sel ? "SUB-LCD" : "MAIN-LCD",
 		lcd_sel ? "SUB-LCD" : "MAIN-LCD");
 	if (prev_lcd_sel == lcd_sel) {
-		printk(KERN_DEBUG "%s, ignore switching lcd_sel\n",
+		pr_debug("%s, ignore switching lcd_sel\n",
 			__func__);
 		return;
 	}
@@ -699,7 +699,7 @@ void s3cfb_early_suspend(struct early_suspend *h)
 	struct s3cfb_global *fbdev[2];
 	int i, ret;
 
-	printk(KERN_INFO "+%s\n", __func__);
+	pr_debug("+%s\n", __func__);
 
 	mutex_lock(&s3cfb_lock);
 #ifdef CONFIG_FB_S5P_MIPI_DSIM
@@ -759,12 +759,12 @@ void s3cfb_early_suspend(struct early_suspend *h)
 #endif
 #ifdef CONFIG_EXYNOS_DEV_PD
 	/* disable the power domain */
-	printk(KERN_DEBUG "s3cfb - disable power domain\n");
+	pr_debug("s3cfb - disable power domain\n");
 	pm_runtime_put_sync(&pdev->dev);
 #endif
 	mutex_unlock(&s3cfb_lock);
 
-	printk(KERN_INFO "-%s\n", __func__);
+	pr_debug("-%s\n", __func__);
 
 	return ;
 }
@@ -779,14 +779,14 @@ void s3cfb_late_resume(struct early_suspend *h)
 	int i, j;
 	struct platform_device *pdev = to_platform_device(info->dev);
 
-	printk(KERN_INFO "+%s\n", __func__);
+	pr_debug("+%s\n", __func__);
 
 	dev_dbg(info->dev, "wake up from suspend\n");
 	mutex_lock(&s3cfb_lock);
 
 #ifdef CONFIG_EXYNOS_DEV_PD
 	/* enable the power domain */
-	printk(KERN_DEBUG "s3cfb - enable power domain\n");
+	pr_debug("s3cfb - enable power domain\n");
 	pm_runtime_get_sync(&pdev->dev);
 #endif
 
@@ -893,7 +893,7 @@ void s3cfb_late_resume(struct early_suspend *h)
 #endif
 	mutex_unlock(&s3cfb_lock);
 
-	printk(KERN_INFO "-%s\n", __func__);
+	pr_debug("-%s\n", __func__);
 
 	return;
 }

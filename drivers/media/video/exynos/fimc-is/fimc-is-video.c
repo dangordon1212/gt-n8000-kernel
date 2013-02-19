@@ -379,7 +379,7 @@ static int fimc_is_isp_video_querybuf(struct file *file, void *priv,
 {
 	struct fimc_is_video_dev *video = file->private_data;
 
-	printk(KERN_DEBUG "%s\n", __func__);
+	dbg("%s\n", __func__);
 	return vb2_querybuf(&video->vbq, buf);
 }
 
@@ -388,7 +388,7 @@ static int fimc_is_isp_video_qbuf(struct file *file, void *priv,
 {
 	struct fimc_is_video_dev *video = file->private_data;
 
-	printk(KERN_DEBUG "%s\n", __func__);
+	dbg("%s\n", __func__);
 	return vb2_qbuf(&video->vbq, buf);
 }
 
@@ -397,7 +397,7 @@ static int fimc_is_isp_video_dqbuf(struct file *file, void *priv,
 {
 	struct fimc_is_video_dev *video = file->private_data;
 
-	printk(KERN_DEBUG "%s\n", __func__);
+	dbg("%s\n", __func__);
 	return vb2_dqbuf(&video->vbq, buf, file->f_flags & O_NONBLOCK);
 }
 
@@ -406,7 +406,7 @@ static int fimc_is_isp_video_streamon(struct file *file, void *priv,
 {
 	struct fimc_is_dev *is_dev = video_drvdata(file);
 
-	printk(KERN_DEBUG "%s\n", __func__);
+	dbg("%s\n", __func__);
 	return vb2_streamon(&is_dev->video[FIMC_IS_VIDEO_NUM_BAYER].vbq, type);
 }
 
@@ -415,7 +415,7 @@ static int fimc_is_isp_video_streamoff(struct file *file, void *priv,
 {
 	struct fimc_is_dev *is_dev = video_drvdata(file);
 
-	printk(KERN_DEBUG "%s\n", __func__);
+	dbg("%s\n", __func__);
 	return vb2_streamoff(&is_dev->video[FIMC_IS_VIDEO_NUM_BAYER].vbq, type);
 }
 

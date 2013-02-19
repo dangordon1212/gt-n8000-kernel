@@ -401,8 +401,10 @@ static int max77686_get_voltage(struct regulator_dev *rdev)
 	val >>= shift;
 	val &= mask;
 
+	/*
 	printk(PMIC_REG_DEBUG "%s: id=%d, val=%x\n",
 		__func__, rid, val);
+	*/
 
 	return max77686_list_voltage(rdev, val);
 }

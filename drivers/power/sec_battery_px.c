@@ -1440,7 +1440,7 @@ static int sec_bat_get_property(struct power_supply *bat_ps,
 #else
 		val->intval = battery->info.level;
 #endif
-		pr_info("level = %d\n", val->intval);
+		pr_debug("level = %d\n", val->intval);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = battery->info.batt_temp;
@@ -2194,7 +2194,7 @@ static void sec_bat_status_update(struct power_supply *bat_ps)
 	power_supply_changed(bat_ps);
 	pr_debug("call power_supply_changed");
 
-	pr_info("BAT : soc(%d), vcell(%dmV), curr(%dmA), "
+	pr_debug("BAT : soc(%d), vcell(%dmV), curr(%dmA), "
 		"avg curr(%dmA), temp(%d.%d), chg(%d)",
 		battery->info.level,
 		battery->info.batt_vol,
@@ -2203,7 +2203,7 @@ static void sec_bat_status_update(struct power_supply *bat_ps)
 		battery->info.batt_temp/10,
 		battery->info.batt_temp%10,
 		battery->info.charging_enabled);
-	pr_info(", full(%d), rechg(%d), lowbat(%d), cable(%d)\n",
+	pr_debug(", full(%d), rechg(%d), lowbat(%d), cable(%d)\n",
 		battery->info.batt_is_full,
 		battery->info.batt_is_recharging,
 		battery->is_low_batt_alarm,
@@ -2225,7 +2225,7 @@ static void sec_cable_check_status(struct battery_data *battery)
 		battery->is_low_batt_alarm = false;
 
 		if (battery->info.batt_health != POWER_SUPPLY_HEALTH_GOOD) {
-			pr_info("Unhealth battery state! ");
+			pr_info("Unhealthy battery state! ");
 			status = CHARGER_DISCHARGE;
 			sec_set_chg_en(battery, 0);
 			goto __end__;

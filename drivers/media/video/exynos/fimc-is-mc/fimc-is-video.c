@@ -186,14 +186,14 @@ static int fimc_is_scalerc_video_open(struct file *file)
 
 	if (!test_bit(FIMC_IS_STATE_FW_DOWNLOADED, &isp->pipe_state)) {
 		isp->sensor_num = 1;
-		printk(KERN_INFO "++++ IS load fw (Scaler C open)\n");
+		dbg("++++ IS load fw (Scaler C open)\n");
 		mutex_unlock(&isp->lock);
 		fimc_is_load_fw(isp);
 
 		set_bit(FIMC_IS_STATE_FW_DOWNLOADED, &isp->pipe_state);
 		clear_bit(FIMC_IS_STATE_SENSOR_INITIALIZED, &isp->pipe_state);
 		clear_bit(FIMC_IS_STATE_HW_STREAM_ON, &isp->pipe_state);
-		printk(KERN_INFO "---- IS load fw (Scaler C open)\n");
+		dbg("---- IS load fw (Scaler C open)\n");
 	} else {
 		mutex_unlock(&isp->lock);
 	}
@@ -217,7 +217,7 @@ static int fimc_is_scalerc_video_close(struct file *file)
 		!test_bit(FIMC_IS_STATE_3DNR_STREAM_ON, &isp->pipe_state) &&
 		test_bit(FIMC_IS_STATE_FW_DOWNLOADED, &isp->pipe_state)) {
 
-		printk(KERN_INFO "++++ IS local power off (Scaler C close)\n");
+		dbg("++++ IS local power off (Scaler C close)\n");
 		mutex_unlock(&isp->lock);
 		clear_bit(FIMC_IS_STATE_HW_STREAM_ON, &isp->pipe_state);
 		fimc_is_hw_subip_poweroff(isp);
@@ -242,7 +242,7 @@ static int fimc_is_scalerc_video_close(struct file *file)
 
 		fimc_is_hw_a5_power(isp, 0);
 		clear_bit(FIMC_IS_STATE_FW_DOWNLOADED, &isp->pipe_state);
-		printk(KERN_INFO "---- IS local power off (Scaler C close)\n");
+		dbg("---- IS local power off (Scaler C close)\n");
 	} else {
 		mutex_unlock(&isp->lock);
 	}
@@ -251,7 +251,7 @@ static int fimc_is_scalerc_video_close(struct file *file)
 	mutex_lock(&isp->busfreq_lock);
 	if (isp->busfreq_num == 1) {
 		dev_unlock(isp->bus_dev, &isp->pdev->dev);
-		printk(KERN_DEBUG "busfreq locked off\n");
+		dbg("busfreq locked off\n");
 	}
 	isp->busfreq_num--;
 	if (isp->busfreq_num < 0)
@@ -895,14 +895,14 @@ static int fimc_is_scalerp_video_open(struct file *file)
 	mutex_lock(&isp->lock);
 	if (!test_bit(FIMC_IS_STATE_FW_DOWNLOADED, &isp->pipe_state)) {
 		isp->sensor_num = 1;
-		printk(KERN_INFO "++++ IS load fw (Scaler P open)\n");
+		dbg("++++ IS load fw (Scaler P open)\n");
 		mutex_unlock(&isp->lock);
 		fimc_is_load_fw(isp);
 
 		set_bit(FIMC_IS_STATE_FW_DOWNLOADED, &isp->pipe_state);
 		clear_bit(FIMC_IS_STATE_SENSOR_INITIALIZED, &isp->pipe_state);
 		clear_bit(FIMC_IS_STATE_HW_STREAM_ON, &isp->pipe_state);
-		printk(KERN_INFO "---- IS load fw (Scaler P open)\n");
+		dbg("---- IS load fw (Scaler P open)\n");
 	} else {
 		mutex_unlock(&isp->lock);
 	}
@@ -926,7 +926,7 @@ static int fimc_is_scalerp_video_close(struct file *file)
 		!test_bit(FIMC_IS_STATE_3DNR_STREAM_ON, &isp->pipe_state) &&
 		test_bit(FIMC_IS_STATE_FW_DOWNLOADED, &isp->pipe_state)) {
 
-		printk(KERN_INFO "++++ IS local power off (Scaler P close)\n");
+		dbg("++++ IS local power off (Scaler P close)\n");
 		mutex_unlock(&isp->lock);
 		clear_bit(FIMC_IS_STATE_HW_STREAM_ON, &isp->pipe_state);
 		fimc_is_hw_subip_poweroff(isp);
@@ -951,7 +951,7 @@ static int fimc_is_scalerp_video_close(struct file *file)
 
 		fimc_is_hw_a5_power(isp, 0);
 		clear_bit(FIMC_IS_STATE_FW_DOWNLOADED, &isp->pipe_state);
-		printk(KERN_INFO "---- IS local power off (Scaler P close)\n");
+		dbg("---- IS local power off (Scaler P close)\n");
 	} else {
 		mutex_unlock(&isp->lock);
 	}
@@ -960,7 +960,7 @@ static int fimc_is_scalerp_video_close(struct file *file)
 	mutex_lock(&isp->busfreq_lock);
 	if (isp->busfreq_num == 1) {
 		dev_unlock(isp->bus_dev, &isp->pdev->dev);
-		printk(KERN_DEBUG "busfreq locked off\n");
+		dbg("busfreq locked off\n");
 	}
 	isp->busfreq_num--;
 	if (isp->busfreq_num < 0)

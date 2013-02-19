@@ -870,7 +870,7 @@ void s3cfb_early_suspend(struct early_suspend *h)
 	struct s3cfb_global *fbdev[2];
 	int i, ret;
 
-	printk(KERN_INFO "+%s\n", __func__);
+	pr_debug("+%s\n", __func__);
 
 #ifdef CONFIG_FB_S5P_MIPI_DSIM
 	if (lcd_early_suspend)
@@ -938,7 +938,7 @@ void s3cfb_early_suspend(struct early_suspend *h)
 	}
 #endif
 
-	printk(KERN_INFO "-%s\n", __func__);
+	pr_debug("-%s\n", __func__);
 	return ;
 }
 

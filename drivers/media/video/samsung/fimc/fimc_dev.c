@@ -535,7 +535,7 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 	static struct timeval curr_time, before_time;
 	if (!fimc_cam_use) {
 		do_gettimeofday(&curr_time);
-		printk(KERN_INFO "%s : time : %ld\n", __func__,
+		printk(KERN_DEBUG "%s : time : %ld\n", __func__,
 				curr_time.tv_usec - before_time.tv_usec);
 		before_time.tv_usec = curr_time.tv_usec;
 	}
@@ -556,14 +556,14 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 		}
 
 		if (cap->cnt < 20) {
-			printk(KERN_INFO "%s[%d], fimc%d, cnt[%d]\n", __func__,
+			fimc_dbg("%s[%d], fimc%d, cnt[%d]\n", __func__,
 							pp, ctrl->id, cap->cnt);
 			cap->cnt++;
 		}
 
 		fimc_info2("%s[%d]\n", __func__, pp);
 		if (pp == 0 || ctrl->restart) {
-			printk(KERN_INFO "%s[%d] SKIPPED\n", __func__, pp);
+			fimc_dbg("%s[%d] SKIPPED\n", __func__, pp);
 			if (ctrl->cap->nr_bufs == 1) {
 				fimc_stop_capture(ctrl);
 				ctrl->is_frame_end_irq = 1;
@@ -644,7 +644,7 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 				fimc_stop_capture(ctrl);
 				ctrl->is_frame_end_irq = 1;
 
-				printk(KERN_INFO "fimc_irq_cap available_bufnum = %d\n", available_bufnum);
+				fimc_dbg("fimc_irq_cap available_bufnum = %d\n", available_bufnum);
 				ctrl->status = FIMC_BUFFER_STOP;
 			}
 		} else {
@@ -749,8 +749,8 @@ static struct fimc_control *fimc_register_controller(struct platform_device *pde
 #ifdef CONFIG_ION_EXYNOS
 	}
 #endif
-	printk(KERN_DEBUG "ctrl->mem.size = 0x%x\n", ctrl->mem.size);
-	printk(KERN_DEBUG "ctrl->mem.base = 0x%x\n", ctrl->mem.base);
+	fimc_dbg("ctrl->mem.size = 0x%x\n", ctrl->mem.size);
+	fimc_dbg("ctrl->mem.base = 0x%x\n", ctrl->mem.base);
 	ctrl->mem.curr = ctrl->mem.base;
 #endif
 	ctrl->status = FIMC_STREAMOFF;

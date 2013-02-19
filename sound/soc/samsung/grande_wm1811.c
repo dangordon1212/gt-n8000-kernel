@@ -688,7 +688,7 @@ static int midas_wm1811_aif1_hw_params(struct snd_pcm_substream *substream,
 	unsigned int pll_out;
 	int ret;
 
-	dev_info(codec_dai->dev, "%s ++\n", __func__);
+	dev_dbg(codec_dai->dev, "%s ++\n", __func__);
 	/* AIF1CLK should be >=3MHz for optimal performance */
 	if (params_rate(params) == 8000 || params_rate(params) == 11025)
 		pll_out = params_rate(params) * 512;
@@ -734,7 +734,7 @@ static int midas_wm1811_aif1_hw_params(struct snd_pcm_substream *substream,
 	if (ret < 0)
 		return ret;
 
-	dev_info(codec_dai->dev, "%s --\n", __func__);
+	dev_dbg(codec_dai->dev, "%s --\n", __func__);
 
 	return 0;
 }
@@ -870,7 +870,7 @@ static int midas_wm1811_aif2_hw_params(struct snd_pcm_substream *substream,
 	int prate;
 	int bclk;
 
-	dev_info(codec_dai->dev, "%s ++\n", __func__);
+	dev_dbg(codec_dai->dev, "%s ++\n", __func__);
 	prate = params_rate(params);
 	switch (params_rate(params)) {
 	case 8000:
@@ -975,7 +975,7 @@ static int midas_wm1811_aif2_hw_params(struct snd_pcm_substream *substream,
 	if (ret < 0)
 		dev_err(codec_dai->dev, "Unable to switch to FLL2: %d\n", ret);
 
-	dev_info(codec_dai->dev, "%s --\n", __func__);
+	dev_dbg(codec_dai->dev, "%s --\n", __func__);
 	return 0;
 }
 

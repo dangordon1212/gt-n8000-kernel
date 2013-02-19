@@ -165,14 +165,14 @@ void set_mdnie_value(struct mdnie_info *mdnie, u8 force)
 		mdnie->tone = TONE_NORMAL;
 
 	if (mdnie->tunning) {
-		dev_info(mdnie->dev, "mdnie tunning mode is enabled\n");
+		dev_info(mdnie->dev, "mdnie tuning mode is enabled\n");
 		return;
 	}
 
 	mutex_lock(&mdnie->lock);
 
 	if (mdnie->negative == NEGATIVE_ON) {
-		dev_info(mdnie->dev, "NEGATIVE_ON\n");
+		dev_dbg(mdnie->dev, "NEGATIVE_ON\n");
 		mdnie_send_sequence(mdnie, negative_table[mdnie->cabc].seq);
 		goto exit;
 	}
@@ -183,7 +183,7 @@ void set_mdnie_value(struct mdnie_info *mdnie, u8 force)
 		mdnie->tone = idx;
 
 		mdnie_send_sequence(mdnie, tune_dmb[mdnie->mode].seq);
-		dev_info(mdnie->dev, "mode=%d, scenario=%d, outdoor=%d, cabc=%d, %s\n",
+		dev_dbg(mdnie->dev, "mode=%d, scenario=%d, outdoor=%d, cabc=%d, %s\n",
 			mdnie->mode, mdnie->scenario, mdnie->outdoor,
 			mdnie->cabc, tune_dmb[mdnie->mode].name);
 		goto etc;
@@ -193,19 +193,19 @@ void set_mdnie_value(struct mdnie_info *mdnie, u8 force)
 	if (SCENARIO_IS_COLOR(mdnie->scenario)) {
 		idx = mdnie->scenario - COLOR_TONE_1;
 		mdnie_send_sequence(mdnie, color_tone_table[idx].seq);
-		dev_info(mdnie->dev, "mode=%d, scenario=%d, outdoor=%d, cabc=%d, %s\n",
+		dev_dbg(mdnie->dev, "mode=%d, scenario=%d, outdoor=%d, cabc=%d, %s\n",
 			mdnie->mode, mdnie->scenario, mdnie->outdoor, mdnie->cabc,
 			color_tone_table[idx].name);
 
 		goto exit;
 	} else if (mdnie->scenario == CAMERA_MODE) {
 		mdnie_send_sequence(mdnie, camera_table[mdnie->outdoor].seq);
-		dev_info(mdnie->dev, "%s\n", camera_table[mdnie->outdoor].name);
+		dev_dbg(mdnie->dev, "%s\n", camera_table[mdnie->outdoor].name);
 
 		goto exit;
 	} else {
 		mdnie_send_sequence(mdnie, tunning_table[mdnie->cabc][mdnie->mode][mdnie->scenario].seq);
-		dev_info(mdnie->dev, "mode=%d, scenario=%d, outdoor=%d, cabc=%d, %s\n",
+		dev_dbg(mdnie->dev, "mode=%d, scenario=%d, outdoor=%d, cabc=%d, %s\n",
 			mdnie->mode, mdnie->scenario, mdnie->outdoor, mdnie->cabc,
 			tunning_table[mdnie->cabc][mdnie->mode][mdnie->scenario].name);
 	}
@@ -215,7 +215,7 @@ etc:
 #endif
 	if (!IS_ERR_OR_NULL(etc_table[mdnie->cabc][mdnie->outdoor][mdnie->tone].seq)) {
 		mdnie_send_sequence(mdnie, etc_table[mdnie->cabc][mdnie->outdoor][mdnie->tone].seq);
-		dev_info(mdnie->dev, "%s\n", etc_table[mdnie->cabc][mdnie->outdoor][mdnie->tone].name);
+		dev_dbg(mdnie->dev, "%s\n", etc_table[mdnie->cabc][mdnie->outdoor][mdnie->tone].name);
 	}
 
 exit:
@@ -412,7 +412,7 @@ static int mdnie_set_brightness(struct backlight_device *bd)
 
 	if ((mdnie->enable) && (mdnie->bd_enable)) {
 		ret = update_brightness(mdnie);
-		dev_info(&bd->dev, "brightness=%d\n", bd->props.brightness);
+		dev_dbg(&bd->dev, "brightness=%d\n", bd->props.brightness);
 		if (ret < 0)
 			return -EINVAL;
 	}
@@ -448,7 +448,7 @@ static ssize_t mode_store(struct device *dev,
 
 	ret = strict_strtoul(buf, 0, (unsigned long *)&value);
 
-	dev_info(dev, "%s :: value=%d\n", __func__, value);
+	dev_dbg(dev, "%s :: value=%d\n", __func__, value);
 
 	if (value >= MODE_MAX) {
 		value = STANDARD;
@@ -486,7 +486,7 @@ static ssize_t scenario_store(struct device *dev,
 
 	ret = strict_strtoul(buf, 0, (unsigned long *)&value);
 
-	dev_info(dev, "%s :: value=%d\n", __func__, value);
+	dev_dbg(dev, "%s :: value=%d\n", __func__, value);
 
 	if (!SCENARIO_IS_VALID(value))
 		value = UI_MODE;
@@ -527,7 +527,7 @@ static ssize_t outdoor_store(struct device *dev,
 
 	ret = strict_strtoul(buf, 0, (unsigned long *)&value);
 
-	dev_info(dev, "%s :: value=%d\n", __func__, value);
+	dev_dbg(dev, "%s :: value=%d\n", __func__, value);
 
 	if (value >= OUTDOOR_MAX)
 		value = OUTDOOR_OFF;
@@ -567,7 +567,7 @@ static ssize_t cabc_store(struct device *dev,
 
 	ret = strict_strtoul(buf, 0, (unsigned long *)&value);
 
-	dev_info(dev, "%s :: value=%d\n", __func__, value);
+	dev_dbg(dev, "%s :: value=%d\n", __func__, value);
 
 	if (value >= CABC_MAX)
 		value = CABC_OFF;
@@ -614,7 +614,7 @@ static ssize_t auto_brightness_store(struct device *dev,
 		return rc;
 	else {
 		if (mdnie->auto_brightness != value) {
-			dev_info(dev, "%s - %d -> %d\n", __func__, mdnie->auto_brightness, value);
+			dev_dbg(dev, "%s - %d -> %d\n", __func__, mdnie->auto_brightness, value);
 			mutex_lock(&mdnie->dev_lock);
 			mdnie->auto_brightness = value;
 #if defined(CONFIG_FB_S5P_S6C1372)
@@ -658,10 +658,10 @@ static ssize_t tunning_store(struct device *dev,
 
 	if (!strncmp(buf, "0", 1)) {
 		mdnie->tunning = FALSE;
-		dev_info(dev, "%s :: tunning is disabled.\n", __func__);
+		dev_info(dev, "%s :: tuning is disabled.\n", __func__);
 	} else if (!strncmp(buf, "1", 1)) {
 		mdnie->tunning = TRUE;
-		dev_info(dev, "%s :: tunning is enabled.\n", __func__);
+		dev_info(dev, "%s :: tuning is enabled.\n", __func__);
 	} else {
 		if (!mdnie->tunning)
 			return count;
@@ -671,7 +671,7 @@ static ssize_t tunning_store(struct device *dev,
 
 		mdnie_txtbuf_to_parsing(tuning_file_name);
 
-		dev_info(dev, "%s :: %s\n", __func__, tuning_file_name);
+		dev_dbg(dev, "%s :: %s\n", __func__, tuning_file_name);
 	}
 
 	return count;
@@ -697,7 +697,7 @@ static ssize_t negative_store(struct device *dev,
 	int ret;
 
 	ret = strict_strtoul(buf, 0, (unsigned long *)&value);
-	dev_info(dev, "%s :: value=%d, by %s\n", __func__, value, current->comm);
+	dev_dbg(dev, "%s :: value=%d, by %s\n", __func__, value, current->comm);
 
 	if (ret < 0)
 		return ret;
@@ -738,7 +738,7 @@ void mdnie_early_suspend(struct early_suspend *h)
 	struct mdnie_info *mdnie = container_of(h, struct mdnie_info, early_suspend);
 	struct lcd_platform_data *pd = NULL;
 
-	dev_info(mdnie->dev, "+%s\n", __func__);
+	dev_dbg(mdnie->dev, "+%s\n", __func__);
 
 #if defined(CONFIG_FB_MDNIE_PWM)
 	pd = mdnie->lcd_pd;
@@ -757,7 +757,7 @@ void mdnie_early_suspend(struct early_suspend *h)
 		pd->power_on(NULL, 0);
 #endif
 
-	dev_info(mdnie->dev, "-%s\n", __func__);
+	dev_dbg(mdnie->dev, "-%s\n", __func__);
 
 	return ;
 }
@@ -768,7 +768,7 @@ void mdnie_late_resume(struct early_suspend *h)
 	struct mdnie_info *mdnie = container_of(h, struct mdnie_info, early_suspend);
 	struct lcd_platform_data *pd = NULL;
 
-	dev_info(mdnie->dev, "+%s\n", __func__);
+	dev_dbg(mdnie->dev, "+%s\n", __func__);
 
 #if defined(CONFIG_FB_MDNIE_PWM)
 	pd = mdnie->lcd_pd;
@@ -785,7 +785,7 @@ void mdnie_late_resume(struct early_suspend *h)
 		pd->power_on(NULL, 1);
 
 	if (mdnie->enable) {
-		dev_info(&mdnie->bd->dev, "brightness=%d\n", mdnie->bd->props.brightness);
+		dev_dbg(&mdnie->bd->dev, "brightness=%d\n", mdnie->bd->props.brightness);
 		update_brightness(mdnie);
 	}
 
@@ -794,7 +794,7 @@ void mdnie_late_resume(struct early_suspend *h)
 
 	set_mdnie_value(mdnie, 1);
 
-	dev_info(mdnie->dev, "-%s\n", __func__);
+	dev_dbg(mdnie->dev, "-%s\n", __func__);
 
 	return ;
 }
@@ -953,7 +953,7 @@ static void mdnie_shutdown(struct platform_device *pdev)
 	struct lcd_platform_data *pd = NULL;
 	pd = mdnie->lcd_pd;
 
-	dev_info(mdnie->dev, "+%s\n", __func__);
+	dev_dbg(mdnie->dev, "+%s\n", __func__);
 
 	mdnie->bd_enable = FALSE;
 
@@ -968,7 +968,7 @@ static void mdnie_shutdown(struct platform_device *pdev)
 	else
 		pd->power_on(NULL, 0);
 
-	dev_info(mdnie->dev, "-%s\n", __func__);
+	dev_dbg(mdnie->dev, "-%s\n", __func__);
 #endif
 }
 

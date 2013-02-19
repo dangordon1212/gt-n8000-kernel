@@ -99,7 +99,7 @@ static bool max17042_check_status(struct i2c_client *client)
 	if (max17042_read_reg(client, MAX17042_REG_STATUS, data) < 0)
 		return ret;
 
-	pr_info("%s : status_reg(%02x%02x)\n", __func__, data[1], data[0]);
+	pr_debug("%s : status_reg(%02x%02x)\n", __func__, data[1], data[0]);
 
 	/* minimum SOC threshold exceeded. */
 	if (data[1] & (0x1 << 2))
@@ -671,23 +671,23 @@ static void fg_test_print(struct i2c_client *client)
 	temp2 = temp / 1000000;
 	average_vcell += (temp2 << 4);
 
-	pr_info("%s : AVG_VCELL(%d), data(0x%04x)\n", __func__,
+	pr_debug("%s : AVG_VCELL(%d), data(0x%04x)\n", __func__,
 		average_vcell, (data[1]<<8) | data[0]);
 
 	reg_data = fg_read_register(client, FULLCAP_REG);
-	pr_info("%s : FULLCAP(%d), data(0x%04x)\n", __func__,
+	pr_debug("%s : FULLCAP(%d), data(0x%04x)\n", __func__,
 		reg_data/2, reg_data);
 
 	reg_data = fg_read_register(client, REMCAP_REP_REG);
-	pr_info("%s : REMCAP_REP(%d), data(0x%04x)\n", __func__,
+	pr_debug("%s : REMCAP_REP(%d), data(0x%04x)\n", __func__,
 		reg_data/2, reg_data);
 
 	reg_data = fg_read_register(client, REMCAP_MIX_REG);
-	pr_info("%s : REMCAP_MIX(%d), data(0x%04x)\n", __func__,
+	pr_debug("%s : REMCAP_MIX(%d), data(0x%04x)\n", __func__,
 		reg_data/2, reg_data);
 
 	reg_data = fg_read_register(client, REMCAP_AV_REG);
-	pr_info("%s : REMCAP_AV(%d), data(0x%04x)\n", __func__,
+	pr_debug("%s : REMCAP_AV(%d), data(0x%04x)\n", __func__,
 		reg_data/2, reg_data);
 
 }
@@ -759,7 +759,7 @@ static int fg_read_vcell(struct i2c_client *client)
 	vcell += (temp2 << 4);
 
 	if (!(fuelgauge->info.pr_cnt % PRINT_COUNT))
-		pr_info("%s : VCELL(%d), data(0x%04x)\n",
+		pr_debug("%s : VCELL(%d), data(0x%04x)\n",
 			__func__, vcell, (data[1]<<8) | data[0]);
 
 	return vcell;
@@ -802,7 +802,7 @@ static int fg_check_battery_present(struct i2c_client *client)
 	}
 
 	if (status_data[0] & (0x1 << 3)) {
-		pr_info("%s - addr(0x01), data(0x%04x)\n", __func__,
+		pr_debug("%s - addr(0x01), data(0x%04x)\n", __func__,
 			(status_data[1]<<8) | status_data[0]);
 		pr_info("%s : battery is absent!!\n", __func__);
 		ret = 0;
@@ -849,7 +849,7 @@ static int fg_read_temp(struct i2c_client *client)
 		temper = 20000;
 
 	if (!(fuelgauge->info.pr_cnt % PRINT_COUNT))
-		pr_info("%s : TEMPERATURE(%d), data(0x%04x)\n", __func__,
+		pr_debug("%s : TEMPERATURE(%d), data(0x%04x)\n", __func__,
 		temper, (data[1]<<8) | data[0]);
 
 	return temper/100;
@@ -937,7 +937,7 @@ static int fg_read_current(struct i2c_client *client)
 
 	if (!(fuelgauge->info.pr_cnt++ % PRINT_COUNT)) {
 		fg_test_print(client);
-		pr_info("%s : CURRENT(%dmA), AVG_CURRENT(%dmA)\n", __func__,
+		pr_debug("%s : CURRENT(%dmA), AVG_CURRENT(%dmA)\n", __func__,
 			i_current, avg_current);
 		fuelgauge->info.pr_cnt = 1;
 		/* Read max17042's all registers every 5 minute. */
@@ -1034,7 +1034,7 @@ int fg_reset_soc(struct i2c_client *client)
 		fg_write_register(client, REMCAP_REP_REG,
 			(u16)(fullcap * 9 / 1000));
 		msleep(200);
-		pr_info("%s : new soc=%d, vfocv=%d\n", __func__,
+		pr_debug("%s : new soc=%d, vfocv=%d\n", __func__,
 			fg_read_soc(client), vfocv);
 	}
 
@@ -1117,6 +1117,7 @@ static void fg_read_model_data(struct i2c_client *client)
 	fg_read_16register(client, 0x90, data1);
 	fg_read_16register(client, 0xa0, data2);
 
+#ifdef DEBUG
 	/* Print model data */
 	for (i = 0; i < 16; i++)
 		pr_info("0x%04x, ", data0[i]);
@@ -1130,6 +1131,7 @@ static void fg_read_model_data(struct i2c_client *client)
 		else
 			pr_info("0x%04x, ", data2[i]);
 	}
+#endif
 
 	do {
 		relock_check = 0;
@@ -1235,7 +1237,7 @@ static int fg_check_status_reg(struct i2c_client *client)
 		pr_err("%s: Failed to read STATUS_REG\n", __func__);
 		return -1;
 	}
-	pr_info("%s - addr(0x00), data(0x%04x)\n", __func__,
+	pr_debug("%s - addr(0x00), data(0x%04x)\n", __func__,
 		(status_data[1]<<8) | status_data[0]);
 
 	if (status_data[1] & (0x1 << 2))
@@ -1490,7 +1492,7 @@ int fg_check_cap_corruption(struct i2c_client *client)
 		(mixcap > (fuelgauge->info.previous_mixcap+530)))) {
 		fg_periodic_read(client);
 
-		pr_info("[FG_Recovery] (B) VfSOC(%d), prevVfSOC(%d), RepSOC(%d), prevRepSOC(%d), MixCap(%d), prevMixCap(%d),VfOCV(0x%04x, %d)\n",
+		pr_debug("[FG_Recovery] (B) VfSOC(%d), prevVfSOC(%d), RepSOC(%d), prevRepSOC(%d), MixCap(%d), prevMixCap(%d),VfOCV(0x%04x, %d)\n",
 			vfsoc,
 			fuelgauge->info.previous_vfsoc,
 			repsoc, fuelgauge->info.previous_repsoc,
@@ -1535,7 +1537,7 @@ int fg_check_cap_corruption(struct i2c_client *client)
 		temp2 = temp / 1000000;
 		pr_vfocv += (temp2 << 4);
 
-		pr_info("[FG_Recovery] (A) newVfSOC(%d), newRepSOC(%d), newMixCap(%d), newVfOCV(0x%04x, %d)\n",
+		pr_debug("[FG_Recovery] (A) newVfSOC(%d), newRepSOC(%d), newMixCap(%d), newVfOCV(0x%04x, %d)\n",
 			fg_read_vfsoc(client),
 			fg_read_soc(client),
 			(fg_read_register(client, REMCAP_MIX_REG)/2),
@@ -1584,12 +1586,12 @@ static void display_low_batt_comp_cnt(struct i2c_client *client)
 	else
 		sprintf(type_str, "Unknown");
 
-	pr_info("Check Array(%s) : [%d, %d], [%d, %d], ", type_str,
+	pr_debug("Check Array(%s) : [%d, %d], [%d, %d], ", type_str,
 			fuelgauge->info.low_batt_comp_cnt[0][0],
 			fuelgauge->info.low_batt_comp_cnt[0][1],
 			fuelgauge->info.low_batt_comp_cnt[1][0],
 			fuelgauge->info.low_batt_comp_cnt[1][1]);
-	pr_info("[%d, %d], [%d, %d], [%d, %d]\n",
+	pr_debug("[%d, %d], [%d, %d], [%d, %d]\n",
 			fuelgauge->info.low_batt_comp_cnt[2][0],
 			fuelgauge->info.low_batt_comp_cnt[2][1],
 			fuelgauge->info.low_batt_comp_cnt[3][0],
@@ -1635,7 +1637,7 @@ void prevent_early_poweroff(struct i2c_client *client,
 	if (repsoc_data > POWER_OFF_SOC_HIGH_MARGIN)
 		return;
 
-	pr_info("%s : soc=%d%%(0x%04x), vcell=%d\n", __func__,
+	pr_debug("%s : soc=%d%%(0x%04x), vcell=%d\n", __func__,
 		repsoc, repsoc_data, vcell);
 	if (vcell > POWER_OFF_VOLTAGE_HIGH_MARGIN) {
 		read_val = fg_read_register(client, FULLCAP_REG);
@@ -1644,7 +1646,7 @@ void prevent_early_poweroff(struct i2c_client *client,
 		(u16)(read_val * 13 / 1000));
 		msleep(200);
 		*fg_soc = fg_read_soc(client);
-		pr_info("%s : new soc=%d, vcell=%d\n", __func__,
+		pr_debug("%s : new soc=%d, vcell=%d\n", __func__,
 			*fg_soc, vcell);
 	}
 }

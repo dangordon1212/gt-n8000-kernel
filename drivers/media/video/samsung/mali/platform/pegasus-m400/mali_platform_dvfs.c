@@ -773,7 +773,9 @@ int change_dvfs_tableset(int change_clk, int change_step)
 		mali_dvfs[change_step].clock = mali_dvfs_all[4].clock;
 	}
 
+#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
 	MALI_PRINT((":::mali dvfs step %d clock and voltage = %d Mhz, %d V\n",change_step, mali_dvfs[change_step].clock, mali_dvfs[change_step].vol));
+#endif
 
 	if (maliDvfsStatus.currentStep == change_step) {
 #ifdef CONFIG_REGULATOR
@@ -838,7 +840,9 @@ int mali_dvfs_bottom_lock_pop(void)
 		return -1;
 	} else if (prev_status == 1) {
 		bottom_lock_step = 0;
+#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
 		MALI_PRINT(("gpu bottom lock release\n"));
+#endif
 	}
 
 	return _mali_osk_atomic_dec_return(&bottomlock_status);

@@ -1687,7 +1687,7 @@ static int fimc_alloc_buffers(struct fimc_control *ctrl,
 	}
 
 	err = cma_info(&mem_info, ctrl->dev, 0);
-	printk(KERN_DEBUG "%s : [cma_info] start_addr : 0x%x, end_addr	: 0x%x, "
+	fimc_dbg("%s : [cma_info] start_addr : 0x%x, end_addr	: 0x%x, "
 			"total_size : 0x%x, free_size : 0x%x req_size : 0x%x\n",
 			__func__, mem_info.lower_bound,	mem_info.upper_bound,
 			mem_info.total_size, mem_info.free_size, alloc_size);
@@ -2377,7 +2377,7 @@ int fimc_s_ctrl_capture(void *fh, struct v4l2_control *c)
 	case V4L2_CID_CAMERA_SENSOR_OUTPUT_SIZE:
 		ctrl->cap->sensor_output_width = (u32)c->value >> 16;
 		ctrl->cap->sensor_output_height = (u32)c->value & 0x0FFFF;
-		printk(KERN_DEBUG "sensor output size: %dx%d\n",
+		fimc_dbg("sensor output size: %dx%d\n",
 			ctrl->cap->sensor_output_width,
 			ctrl->cap->sensor_output_height);
 		break;

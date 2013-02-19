@@ -154,6 +154,7 @@ void pr_ipc(const char *tag, const char *data, size_t len);
 int pr_buffer(const char *tag, const char *data, size_t data_len,
 							size_t max_len);
 
+#ifdef DEBUG
 /* print a sk_buff as hex string */
 #define pr_skb(tag, skb) \
 	pr_buffer(tag, (char *)((skb)->data), (size_t)((skb)->len), (size_t)16)
@@ -162,6 +163,10 @@ int pr_buffer(const char *tag, const char *data, size_t data_len,
 #define pr_urb(tag, urb) \
 	pr_buffer(tag, (char *)((urb)->transfer_buffer), \
 			(size_t)((urb)->actual_length), (size_t)16)
+#else
+#define pr_skb(tag, skb)
+#define pr_urb(tag, urb)
+#endif
 
 /* Stop/wake all TX queues in network interfaces */
 void mif_netif_stop(struct link_device *ld);

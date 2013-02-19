@@ -672,17 +672,17 @@ static void mxt_report_input_data(struct mxt_data *data)
 
 #if TSP_DEBUG_INFO
 		if (data->fingers[i].state == MXT_STATE_PRESS)
-			dev_info(&data->client->dev, "P: id[%d] X[%d],Y[%d]"
+			dev_dbg(&data->client->dev, "P: id[%d] X[%d],Y[%d]"
 			" comp[%d], sum[%d] size[%d], pressure[%d]\n",
 				i, data->fingers[i].x, data->fingers[i].y,
 				data->fingers[i].component, data->sumsize,
 				data->fingers[i].w, data->fingers[i].z);
 #else
 		if (data->fingers[i].state == MXT_STATE_PRESS)
-			dev_info(&data->client->dev, "P: id[%d]\n", i);
+			dev_dbg(&data->client->dev, "P: id[%d]\n", i);
 #endif
 		else if (data->fingers[i].state == MXT_STATE_RELEASE)
-			dev_info(&data->client->dev, "R: id[%d] M[%d]\n",
+			dev_dbg(&data->client->dev, "R: id[%d] M[%d]\n",
 				i, data->fingers[i].mcount);
 
 		if (data->fingers[i].state == MXT_STATE_RELEASE) {

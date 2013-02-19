@@ -3956,7 +3956,7 @@ static int __devinit sii9234_mhl_tx_i2c_probe(struct i2c_client *client,
 	struct class *sec_mhl;
 #endif
 #ifdef __CONFIG_MHL_DEBUG__
-	mhl_dbg_flag = 1;
+	mhl_dbg_flag = 0;
 #endif
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA))

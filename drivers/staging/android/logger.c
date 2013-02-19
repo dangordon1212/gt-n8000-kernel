@@ -554,7 +554,7 @@ static int logger_release(struct inode *inode, struct file *file)
 		list_del(&reader->list);
 		mutex_unlock(&log->mutex);
 		kfree(reader);
-		pr_info("%s: took %d msec\n", __func__,
+		pr_debug("%s: took %d msec\n", __func__,
 			jiffies_to_msecs(jiffies - start));
 	}
 

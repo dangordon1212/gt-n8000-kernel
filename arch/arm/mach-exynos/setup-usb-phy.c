@@ -438,7 +438,7 @@ static int exynos4_usb_phy1_init(struct platform_device *pdev)
 	else if (!strcmp(pdev->name, "s3c-usbgadget"))
 		set_bit(HOST_PHY_DEVICE, &usb_phy_control.usage);
 
-	dev_info(&pdev->dev, "usb phy usage(%ld)\n",usb_phy_control.usage);
+	dev_dbg(&pdev->dev, "usb phy usage(%ld)\n",usb_phy_control.usage);
 
 	if (exynos4_usb_host_phy_is_on()) {
 		dev_err(&pdev->dev, "Already power on PHY\n");
@@ -1151,7 +1151,7 @@ int s5p_usb_phy_suspend(struct platform_device *pdev, int type)
 		if (soc_is_exynos4210() ||
 			soc_is_exynos4212() ||
 			soc_is_exynos4412()) {
-			dev_info(&pdev->dev, "host_phy_susp\n");
+			dev_dbg(&pdev->dev, "host_phy_susp\n");
 			ret = exynos4_usb_phy1_suspend(pdev);
 		} else
 			ret = exynos5_usb_phy_host_suspend(pdev);

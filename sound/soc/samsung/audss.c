@@ -127,7 +127,7 @@ void audss_reg_save(void)
 	audss.reg_saved = true;
 
 	pr_debug("%s: Successfully saved audss reg\n", __func__);
-	pr_info("%s: SRC[0x%x], DIV[0x%x], GATE[0x%x]\n", __func__,
+	pr_debug("%s: SRC[0x%x], DIV[0x%x], GATE[0x%x]\n", __func__,
 					audss.suspend_audss_clksrc,
 					audss.suspend_audss_clkdiv,
 					audss.suspend_audss_clkgate);
@@ -144,7 +144,7 @@ void audss_reg_restore(void)
 	audss.reg_saved = false;
 
 	pr_debug("%s: Successfully restored audss reg\n", __func__);
-	pr_info("%s: SRC[0x%x], DIV[0x%x], GATE[0x%x]\n", __func__,
+	pr_debug("%s: SRC[0x%x], DIV[0x%x], GATE[0x%x]\n", __func__,
 					audss.suspend_audss_clksrc,
 					audss.suspend_audss_clkdiv,
 					audss.suspend_audss_clkgate);
@@ -187,7 +187,7 @@ void audss_clk_enable(bool enable)
 		audss.clk_enabled = false;
 	}
 
-	pr_info("%s(%d): SRC[0x%x], DIV[0x%x], GATE[0x%x]\n", __func__,
+	pr_debug("%s(%d): SRC[0x%x], DIV[0x%x], GATE[0x%x]\n", __func__,
 						enable ? 1 : 0,
 						readl(S5P_CLKSRC_AUDSS),
 						readl(S5P_CLKDIV_AUDSS),
@@ -250,7 +250,7 @@ static __devinit int audss_init(void)
 	}
 
 	audss.rclksrc = rclksrc[BUSCLK];
-	pr_info("%s: RCLK SRC[%s]\n", __func__, audss.rclksrc);
+	pr_debug("%s: RCLK SRC[%s]\n", __func__, audss.rclksrc);
 
 	audss.reg_saved = false;
 	audss.clk_enabled = false;

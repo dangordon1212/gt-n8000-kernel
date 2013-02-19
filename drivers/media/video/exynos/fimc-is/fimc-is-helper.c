@@ -1301,11 +1301,11 @@ void fimc_is_hw_a5_power(struct fimc_is_dev *dev, int on)
 {
 	u32 cfg;
 	u32 timeout;
-	printk(KERN_INFO "%s++ %d \n", __func__, on);
+	dbg("%s++ %d \n", __func__, on);
 
 	if (on) {
 		/* watchdog disable */
-		printk(KERN_INFO "%s on 1. watchdog disable\n", __func__);
+		dbg("%s on 1. watchdog disable\n", __func__);
 		writel(0x0, dev->regs + WDT);
 		/* 1. A5 start address setting */
 #if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
@@ -1313,43 +1313,43 @@ void fimc_is_hw_a5_power(struct fimc_is_dev *dev, int on)
 #elif defined(CONFIG_VIDEOBUF2_ION)
 		cfg = dev->mem.dvaddr;
 #endif
-		printk(KERN_INFO "%s on 2. access BBOAR\n", __func__);
+		dbg("%s on 2. access BBOAR\n", __func__);
 		writel(cfg, dev->regs + BBOAR);
 		/* 2. A5 power on*/
-		printk(KERN_INFO "%s on 3. access PMUREG_ISP_ARM_CONFIGURATION\n", __func__);
+		dbg("%s on 3. access PMUREG_ISP_ARM_CONFIGURATION\n", __func__);
 		writel(0x1, PMUREG_ISP_ARM_CONFIGURATION);
 		/* 3. enable A5 */
-		printk(KERN_INFO "%s on 4. access PMUREG_ISP_ARM_OPTION\n", __func__);
+		dbg("%s on 4. access PMUREG_ISP_ARM_OPTION\n", __func__);
 		writel(0x00018000, PMUREG_ISP_ARM_OPTION);
-		printk(KERN_INFO "%s on 5. complete\n", __func__);
+		dbg("%s on 5. complete\n", __func__);
 	} else {
 		/* 1. disable A5 */
-		printk(KERN_INFO "%s off 1. access PMUREG_ISP_ARM_OPTION\n", __func__);
+		dbg("%s off 1. access PMUREG_ISP_ARM_OPTION\n", __func__);
 		if (dev->low_power_mode) {
 			/* Low power mode */
-			printk(KERN_INFO "%s off ?!?! Low power mode (Option 0)\n", __func__);
+			dbg("%s off ?!?! Low power mode (Option 0)\n", __func__);
 			writel(0x0, PMUREG_ISP_ARM_OPTION);
 		} else {
 			writel(0x10000, PMUREG_ISP_ARM_OPTION);
 		}
 		/* 2. A5 power off*/
-		printk(KERN_INFO "%s off 2. access PMUREG_ISP_ARM_CONFIGURATION\n", __func__);
+		dbg("%s off 2. access PMUREG_ISP_ARM_CONFIGURATION\n", __func__);
 		writel(0x0, PMUREG_ISP_ARM_CONFIGURATION);
 		/* 3. Check A5 power off status register */
-		printk(KERN_INFO "%s off 3. check A5 power off status\n", __func__);
+		dbg("%s off 3. check A5 power off status\n", __func__);
 		timeout = 1000;
 		while (__raw_readl(PMUREG_ISP_ARM_STATUS) & 0x1) {
 			if (timeout == 0) {
 				printk(KERN_ERR "%s Low power off\n", __func__);
 				fimc_is_hw_set_low_poweroff(dev, true);
 			}
-			printk(KERN_INFO "%s Wait A5 power off\n", __func__);
+			dbg("%s Wait A5 power off\n", __func__);
 			timeout--;
 			udelay(1);
 		}
-		printk(KERN_INFO "%s off 4. complete\n", __func__);
+		dbg("%s off 4. complete\n", __func__);
 	}
-	printk(KERN_INFO "%s --\n", __func__);
+	dbg("%s --\n", __func__);
 }
 
 void fimc_is_hw_set_sensor_num(struct fimc_is_dev *dev)
