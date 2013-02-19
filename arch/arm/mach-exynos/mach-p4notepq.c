@@ -302,7 +302,7 @@ static void tdmb_set_config_poweroff(void)
 
 static void tdmb_gpio_on(void)
 {
-	printk(KERN_DEBUG "tdmb_gpio_on\n");
+	pr_debug("tdmb_gpio_on\n");
 
 	tdmb_set_config_poweron();
 
@@ -313,7 +313,7 @@ static void tdmb_gpio_on(void)
 
 static void tdmb_gpio_off(void)
 {
-	printk(KERN_DEBUG "tdmb_gpio_off\n");
+	pr_debug("tdmb_gpio_off\n");
 
 	tdmb_set_config_poweroff();
 
@@ -657,12 +657,12 @@ static void __init smdk4212_usbgadget_init(void)
 		unsigned int newluns = 0;
 		unsigned int cdfs = 1;
 
-		printk(KERN_DEBUG "usb: %s: default luns=%d, new luns=%d\n",
+		pr_debug("usb: %s: default luns=%d, new luns=%d\n",
 				__func__, android_pdata->nluns, newluns);
 		android_pdata->nluns = newluns;
 		android_pdata->cdfs_support = cdfs;
 	} else {
-		printk(KERN_DEBUG "usb: %s android_pdata is not available\n",
+		pr_debug("usb: %s android_pdata is not available\n",
 				__func__);
 	}
 
@@ -675,7 +675,7 @@ static void __init smdk4212_usbgadget_init(void)
 		/* Squelch Threshold Tune [13:11] (111 : -20%) */
 		pdata->phy_tune_mask |= (0x7 << 11);
 		pdata->phy_tune |= (0x7 << 11);
-		printk(KERN_DEBUG "usb: %s tune_mask=0x%x, tune=0x%x\n",
+		pr_debug("usb: %s tune_mask=0x%x, tune=0x%x\n",
 			__func__, pdata->phy_tune_mask, pdata->phy_tune);
 	}
 #endif
@@ -1033,7 +1033,7 @@ static void irda_device_init(void)
 {
 	int ret;
 
-	printk(KERN_ERR "%s called!\n", __func__);
+	printk(KERN_INFO "%s called!\n", __func__);
 
 	ret = gpio_request(GPIO_IRDA_WAKE, "irda_wake");
 	if (ret) {
@@ -1283,7 +1283,7 @@ static void  sec_charger_cb(int set_cable_type, int cable_sub_type)
 		usb_switch_unlock();
 		break;
 	}
-	pr_info("%s:cable_type=%d,tsp(%d),usb(%d),attached(%d),usblpm(%d)\n",
+	pr_debug("%s:cable_type=%d,tsp(%d),usb(%d),attached(%d),usblpm(%d)\n",
 		__func__, set_cable_type, cable_state_to_tsp,
 		cable_state_to_usb, is_cable_attached, is_usb_lpm_enter);
 
@@ -1313,7 +1313,7 @@ static void  sec_charger_cb(int set_cable_type, int cable_sub_type)
 			usb_gadget_vbus_disconnect(gadget);
 	}
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 }
 
 static struct sec_battery_platform_data sec_battery_platform = {
@@ -1561,7 +1561,7 @@ static void check_uart_path(bool en)
 		gpio_direction_output(gpio_uart_sel2, 1);
 	else
 		gpio_direction_output(gpio_uart_sel2, 0);
-	printk(KERN_DEBUG "[Keyboard] uart_sel2 : %d\n",
+	pr_debug("[Keyboard] uart_sel2 : %d\n",
 		gpio_get_value(gpio_uart_sel2));
 #else
 #if (CONFIG_SAMSUNG_ANALOG_UART_SWITCH == 2)
@@ -1577,11 +1577,11 @@ static void check_uart_path(bool en)
 	if (en) {
 		gpio_direction_output(gpio_uart_sel, 1);
 		gpio_direction_output(gpio_uart_sel2, 1);
-		printk(KERN_DEBUG "[Keyboard] uart_sel : 1, 1\n");
+		pr_debug("[Keyboard] uart_sel : 1, 1\n");
 	} else {
 		gpio_direction_output(gpio_uart_sel, 1);
 		gpio_direction_output(gpio_uart_sel2, 0);
-		printk(KERN_DEBUG "[Keyboard] uart_sel : 0, 0\n");
+		pr_debug("[Keyboard] uart_sel : 0, 0\n");
 	}
 #else
 	if (en)
@@ -1589,7 +1589,7 @@ static void check_uart_path(bool en)
 	else
 		gpio_direction_output(gpio_uart_sel, 0);
 
-	printk(KERN_DEBUG "[Keyboard] uart_sel : %d\n",
+	pr_debug("[Keyboard] uart_sel : %d\n",
 		gpio_get_value(gpio_uart_sel));
 #endif
 }
@@ -1630,7 +1630,7 @@ static void px_usb_otg_power(int active)
 
 static void px_usb_otg_en(int active)
 {
-	pr_info("otg %s : %d\n", __func__, active);
+	pr_debug("otg %s : %d\n", __func__, active);
 
 	usb_switch_lock();
 

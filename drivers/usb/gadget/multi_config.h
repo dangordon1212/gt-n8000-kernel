@@ -31,15 +31,15 @@
 /*#define USB_DEBUG
  *#define USB_MORE_DEBUG
  */
-#define USB_DEBUG_ESS
+#undef USB_DEBUG_ESS
 
 #ifdef USB_DEBUG
 #  ifdef USB_MORE_DEBUG
 #    define USB_DBG(fmt, args...) \
-	printk(KERN_INFO "usb: %s "fmt, __func__, ##args)
+	pr_info("usb: %s "fmt, __func__, ##args)
 #  else
 #    define USB_DBG(fmt, args...) \
-	printk(KERN_DEBUG "usb: %s "fmt, __func__, ##args)
+	pr_debug("usb: %s "fmt, __func__, ##args)
 #  endif
 #else /* DO NOT PRINT LOG */
 #  define USB_DBG(fmt, args...) do { } while (0)
@@ -48,10 +48,10 @@
 #ifdef USB_DEBUG_ESS
 #  ifdef USB_MORE_DEBUG
 #    define USB_DBG_ESS(fmt, args...) \
-	printk(KERN_INFO "usb: %s "fmt, __func__, ##args)
+	pr_info("usb: %s "fmt, __func__, ##args)
 #  else
 #    define USB_DBG_ESS(fmt, args...) \
-	printk(KERN_DEBUG "usb: %s "fmt, __func__, ##args)
+	pr_debug("usb: %s "fmt, __func__, ##args)
 #  endif
 #else /* DO NOT PRINT LOG */
 #  define USB_DBG_ESS(fmt, args...) do { } while (0)

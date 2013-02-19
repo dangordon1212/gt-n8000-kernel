@@ -100,7 +100,7 @@ static int brcm_init_wlan_mem(void)
 	if(!wlan_static_scan_buf1)
 		goto err_mem_alloc;
 
-	printk("%s: WIFI MEM Allocated\n", __FUNCTION__);
+	pr_info("%s: WIFI MEM Allocated\n", __FUNCTION__);
 	return 0;
 
  err_mem_alloc:
@@ -150,7 +150,7 @@ static unsigned int wlan_sdio_off_table[][4] = {
 static void s3c_config_gpio_alive_table(int array_size, unsigned int (*gpio_table)[4])
 {
 	u32 i, gpio;
-	printk("gpio_table = [%d]\n" , array_size);
+	pr_info("gpio_table size = [%d]\n" , array_size);
 	for (i = 0; i < array_size; i++) {
 		gpio = gpio_table[i][0];
 		s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(gpio_table[i][1]));
@@ -162,19 +162,16 @@ static void s3c_config_gpio_alive_table(int array_size, unsigned int (*gpio_tabl
 
 static int brcm_wlan_power(int onoff)
 {
-	printk("------------------------------------------------");
-	printk("------------------------------------------------\n");
-	printk("%s Enter: power %s\n", __FUNCTION__, onoff ? "on" : "off");
-	pr_info("111%s Enter: power %s\n", __FUNCTION__, onoff ? "on" : "off");
+	pr_info("%s Enter: power %s\n", __FUNCTION__, onoff ? "on" : "off");
 	if (onoff) {
 		s3c_config_gpio_alive_table(ARRAY_SIZE(wlan_on_gpio_table), wlan_on_gpio_table);
 		udelay(200);
 		gpio_set_value(GPIO_WLAN_EN, GPIO_LEVEL_HIGH);
-		printk(KERN_DEBUG "WLAN: GPIO_WLAN_EN = %d \n", gpio_get_value(GPIO_WLAN_EN));
+		pr_debug("WLAN: GPIO_WLAN_EN = %d \n", gpio_get_value(GPIO_WLAN_EN));
 	} else {
 		gpio_set_value(GPIO_WLAN_EN, GPIO_LEVEL_LOW);
 		s3c_config_gpio_alive_table(ARRAY_SIZE(wlan_off_gpio_table), wlan_off_gpio_table);
-		printk(KERN_DEBUG "WLAN: GPIO_WLAN_EN = %d \n", gpio_get_value(GPIO_WLAN_EN));
+		pr_debug("WLAN: GPIO_WLAN_EN = %d \n", gpio_get_value(GPIO_WLAN_EN));
 	}
 
 	return 0;
@@ -309,17 +306,14 @@ static struct platform_device brcm_device_wlan = {
 int __init brcm_wlan_init(void)
 {
 	int ret;
-	printk("%s: start\n", __FUNCTION__);
+	pr_info("%s: start\n", __func__);
 
 #ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
 	brcm_init_wlan_mem();
 #endif
 
 	ret =  platform_device_register(&brcm_device_wlan);
-	printk("-----------------------------------------------------\n");
-	printk("-----------------------------------------------------\n");
-	printk("-----------------------------------------------------\n");
-	printk("regist ret:%d\n", ret);
+	pr_info("%s: platform_device_register ret: %d\n", __func__, ret);
 	return ret;
 
 //	return platform_device_register(&brcm_device_wlan);

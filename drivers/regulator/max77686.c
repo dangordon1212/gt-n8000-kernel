@@ -316,8 +316,8 @@ static int max77686_reg_enable(struct regulator_dev *rdev)
 	if (ret)
 		return ret;
 
-	pr_debug("id=%d, pattern=%x\n",
-		rdev_get_id(rdev), pattern);
+	pr_debug("%s: id=%d, pattern=%x\n",
+		__func__, rdev_get_id(rdev), pattern);
 
 	return max77686_update_reg(i2c, reg, pattern, mask);
 }
@@ -332,8 +332,8 @@ static int max77686_reg_disable(struct regulator_dev *rdev)
 	if (ret)
 		return ret;
 
-	pr_debug("id=%d, pattern=%x\n",
-		rdev_get_id(rdev), pattern);
+	pr_debug("%s: id=%d, pattern=%x\n",
+		__func__, rdev_get_id(rdev), pattern);
 
 	return max77686_update_reg(i2c, reg, ~mask, mask);
 }
@@ -401,7 +401,8 @@ static int max77686_get_voltage(struct regulator_dev *rdev)
 	val >>= shift;
 	val &= mask;
 
-	pr_debug("id=%d, val=%x\n", rid, val);
+	pr_debug("%s: id=%d, val=%x\n",
+		__func__, rid, val);
 
 	return max77686_list_voltage(rdev, val);
 }
@@ -478,7 +479,7 @@ static int max77686_set_voltage(struct regulator_dev *rdev,
 	if (!gpio_get_value(GPIO_HDMI_EN))
 #endif
 #endif
-		pr_debug("id=%d, org=%x, val=%x",
+		pr_debug("max77686: id=%d, org=%x, val=%x",
 			rdev_get_id(rdev), org, i);
 
 	ret = max77686_update_reg(i2c, reg, i << shift, mask << shift);
@@ -639,7 +640,7 @@ static int max77686_set_ramp_rate(struct i2c_client *i2c, int rate)
 		break;
 	}
 
-	pr_debug("ramp_delay=%d, data=0x%x\n", ramp_delay, data);
+	pr_debug("%s: ramp_delay=%d, data=0x%x\n", __func__, ramp_delay, data);
 
 	max77686_update_reg(i2c, MAX77686_REG_BUCK2CTRL1, data, 0xC0);
 	max77686_update_reg(i2c, MAX77686_REG_BUCK3CTRL1, data, 0xC0);

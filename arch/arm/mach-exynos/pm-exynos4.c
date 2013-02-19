@@ -534,7 +534,7 @@ static int exynos4_pm_suspend(void)
 }
 
 #if !defined(CONFIG_CPU_EXYNOS4210)
-#define CHECK_POINT printk(KERN_DEBUG "%s:%d\n", __func__, __LINE__)
+#define CHECK_POINT pr_debug("%s:%d\n", __func__, __LINE__)
 #else
 #define CHECK_POINT
 #endif

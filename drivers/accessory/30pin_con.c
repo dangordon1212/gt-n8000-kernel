@@ -32,7 +32,7 @@
 #define SUBJECT "ACCESSORY"
 
 #define ACC_CONDEV_DBG(format, ...) \
-	pr_info("[ "SUBJECT " (%s,%d) ] " format "\n", \
+	pr_debug("[ "SUBJECT " (%s,%d) ] " format "\n", \
 		__func__, __LINE__, ## __VA_ARGS__);
 
 #define DETECTION_INTR_DELAY	(get_jiffies_64() + (HZ*15)) /* 20s */
@@ -110,7 +110,7 @@ int acc_unregister_notifier(struct notifier_block *nb)
 
 static int acc_notify(int event)
 {
-	pr_info("notifier: mhl callback\n");
+	pr_debug("notifier: mhl callback\n");
 	return blocking_notifier_call_chain(&acc_notifier, event, NULL);
 }
 #endif
@@ -188,7 +188,7 @@ static ssize_t MHD_check_read(struct class *class,
 static ssize_t MHD_check_write(struct class *class,
 		struct class_attribute *attr, const char *buf, size_t size)
 {
-	printk(KERN_INFO"input data --> %s\n", buf);
+	pr_debug("input data --> %s\n", buf);
 
 	return size;
 }
@@ -343,7 +343,7 @@ static void acc_dock_psy(struct acc_con_info *acc)
 	value.intval = 0;
 	value.intval = (acc->cable_type << 16) + (acc->cable_sub_type << 8) +
 			(acc->cable_pwr_type << 0);
-	pr_info("[BATT]30 cx(%d), sub(%d), pwr(%d)\n",
+	pr_debug("[BATT]30 cx(%d), sub(%d), pwr(%d)\n",
 		acc->cable_type, acc->cable_sub_type, acc->cable_pwr_type);
 
 	psy->set_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);

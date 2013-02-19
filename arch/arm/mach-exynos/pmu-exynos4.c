@@ -345,7 +345,7 @@ void exynos4_pmu_xclkout_set(unsigned int enable, enum xclkout_select source)
 		tmp |= S5P_CLKOUT_DISABLE; /* CLKOUT disable */
 		__raw_writel(tmp, S5P_PMU_DEBUG);
 	}
-	printk(KERN_DEBUG "pmu_debug: 0x%08x\n", __raw_readl(S5P_PMU_DEBUG));
+	pr_debug("pmu_debug: 0x%08x\n", __raw_readl(S5P_PMU_DEBUG));
 }
 EXPORT_SYMBOL_GPL(exynos4_pmu_xclkout_set);
 
@@ -358,7 +358,7 @@ void exynos4_sys_powerdown_xusbxti_control(unsigned int enable)
 	else
 		exynos4_pmu_config[count - 1].val[SYS_SLEEP] = 0x0;
 
-	printk(KERN_DEBUG "xusbxti_control: %ld\n",
+	pr_debug("xusbxti_control: %ld\n",
 			exynos4_pmu_config[count - 1].val[SYS_SLEEP]);
 }
 EXPORT_SYMBOL_GPL(exynos4_sys_powerdown_xusbxti_control);

@@ -332,7 +332,7 @@ static int mxt_get_object_table(struct mxt_data *data)
 
 	dev_info(&data->client->dev, "maXTouch: %d Objects\n",
 			data->info.object_num);
-#if TSP_DEBUG_INFO
+#ifdef TSP_DEBUG_INFO
 	for (i = 0; i < data->info.object_num; i++) {
 		dev_info(&data->client->dev, "Object:T%d\t\t\t"
 			"Address:0x%x\tSize:%d\tInstance:%d\tReport Id's:%d\n",
@@ -373,10 +373,10 @@ static void __devinit mxt_make_reportid_table(struct mxt_data *data)
 		}
 	}
 
+#ifdef TSP_DEBUG_INFO
 	dev_info(&data->client->dev, "maXTouch: %d report ID\n",
 			data->max_report_id);
 
-#if TSP_DEBUG_INFO
 	for (i = 0; i < data->max_report_id; i++) {
 		dev_info(&data->client->dev, "Report_id[%d]:\tT%d\n",
 			i, data->rid_map[i].object_type);
@@ -670,7 +670,7 @@ static void mxt_report_input_data(struct mxt_data *data)
 		}
 		report_count++;
 
-#if TSP_DEBUG_INFO
+#ifdef TSP_DEBUG_INFO
 		if (data->fingers[i].state == MXT_STATE_PRESS)
 			dev_dbg(&data->client->dev, "P: id[%d] X[%d],Y[%d]"
 			" comp[%d], sum[%d] size[%d], pressure[%d]\n",
@@ -720,7 +720,7 @@ static void mxt_treat_T6_object(struct mxt_data *data, u8 *msg)
 {
 	/* normal mode */
 	if (msg[1] == 0x00)
-		dev_info(&data->client->dev, "normal mode\n");
+		dev_dbg(&data->client->dev, "normal mode\n");
 	/* I2C checksum error */
 	if (msg[1] & 0x04)
 		dev_err(&data->client->dev, "I2C checksum error\n");
@@ -729,7 +729,7 @@ static void mxt_treat_T6_object(struct mxt_data *data, u8 *msg)
 		dev_err(&data->client->dev, "config error\n");
 	/* calibration */
 	if (msg[1] & 0x10) {
-		dev_info(&data->client->dev, "calibration is on going !!\n");
+		dev_dbg(&data->client->dev, "calibration is on going !!\n");
 #if CHECK_ANTITOUCH
 		/* After Calibration */
 		data->check_antitouch = 1;
@@ -755,7 +755,7 @@ static void mxt_treat_T6_object(struct mxt_data *data, u8 *msg)
 	}
 	/* reset */
 	if (msg[1] & 0x80) {
-		dev_info(&data->client->dev, "reset is ongoing\n");
+		dev_dbg(&data->client->dev, "reset is ongoing\n");
 
 		if (data->charging_mode)
 			set_charger_config(data, 0);
@@ -1635,7 +1635,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	data->pdata = pdata;
 	data->num_fingers = pdata->max_finger_touches;
 	data->config_version = pdata->config_version;
-#if TSP_DEBUG_INFO
+#ifdef TSP_DEBUG_INFO
 	data->debug_log = true;
 #endif
 	mutex_init(&data->lock);

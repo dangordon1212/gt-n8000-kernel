@@ -625,7 +625,7 @@ static int s5k5ccgx_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s in P8\n", __func__);
+	pr_debug("%s in P8\n", __func__);
 
 #ifndef USE_CAM_GPIO_CFG
 #if !defined(CONFIG_MACH_P8LTE)
@@ -747,7 +747,7 @@ static int s5k5ccgx_power_down(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s in P8\n", __func__);
+	pr_debug("%s in P8\n", __func__);
 
 #ifndef USE_CAM_GPIO_CFG
 #if !defined(CONFIG_MACH_P8LTE)
@@ -855,7 +855,7 @@ static int s5k5ccgx_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s in P4C,P2\n", __func__);
+	pr_debug("%s in P4C,P2\n", __func__);
 
 #ifndef USE_CAM_GPIO_CFG
 	ret = gpio_request(GPIO_2M_nSTBY, "GPL2");
@@ -981,7 +981,7 @@ static int s5k5ccgx_power_down(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s in P4C,P2\n", __func__);
+	pr_debug("%s in P4C,P2\n", __func__);
 
 #ifndef USE_CAM_GPIO_CFG
 	ret = gpio_request(GPIO_2M_nSTBY, "GPL2");
@@ -1090,7 +1090,7 @@ static int s5k5ccgx_power(int enable)
 {
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s %s\n", __func__, enable ? "on" : "down");
+	pr_debug("%s %s\n", __func__, enable ? "on" : "down");
 	if (enable) {
 #ifdef USE_CAM_GPIO_CFG
 		if (cfg_gpio_err) {
@@ -1113,7 +1113,7 @@ static void s5k5ccgx_flashtimer_handler(unsigned long data)
 	int ret = -ENODEV;
 	atomic_t *flash_status = (atomic_t *)data;
 
-	pr_info("********** flashtimer_handler **********\n");
+	pr_debug("********** flashtimer_handler **********\n");
 
 	ret = gpio_direction_output(GPIO_CAM_FLASH_EN, 0);
 	atomic_set(flash_status, S5K5CCGX_FLASH_OFF);
@@ -1130,7 +1130,7 @@ static int s5k5ccgx_flash_en(u32 mode, u32 onoff)
 			0, (unsigned long)&flash_status);
 	int ret = 0;
 
-	printk(KERN_DEBUG "flash_en: mode=%d, on=%d\n", mode, onoff);
+	pr_debug("flash_en: mode=%d, on=%d\n", mode, onoff);
 
 	if (unlikely((u32)mode >= S5K5CCGX_FLASH_MODE_MAX)) {
 		pr_err("flash_en: ERROR, invalid flash mode(%d)\n", mode);
@@ -1173,7 +1173,7 @@ static int s5k5ccgx_flash_en(u32 mode, u32 onoff)
 			ret = gpio_direction_output(GPIO_CAM_MOVIE_EN, 0);
 		else {
 			if (del_timer_sync(&flash_timer)) {
-				pr_info("flash_en: terminate flash timer...\n");
+				pr_debug("flash_en: terminate flash timer...\n");
 				ret = gpio_direction_output(GPIO_CAM_FLASH_EN,
 							0);
 			}
@@ -1294,7 +1294,7 @@ static int s5k5bafx_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 #if !defined(CONFIG_MACH_P8LTE)
 	ret = gpio_request(GPIO_CAM_AVDD_EN, "GPJ1");
 	if (ret) {
@@ -1405,7 +1405,7 @@ static int s5k5bafx_power_off(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 #if !defined(CONFIG_MACH_P8LTE)
 	ret = gpio_request(GPIO_CAM_AVDD_EN, "GPJ1");
@@ -1497,7 +1497,7 @@ static int s5k5bafx_power(int onoff)
 {
 	int ret = 0;
 
-	printk(KERN_INFO "%s(): %s\n", __func__, onoff ? "on" : "down");
+	pr_debug("%s(): %s\n", __func__, onoff ? "on" : "down");
 	if (onoff) {
 		ret = s5k5bafx_power_on();
 		if (unlikely(ret))
@@ -1715,7 +1715,7 @@ static int sr200pc20_power_off(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s in\n", __func__);
+	pr_debug("%s in\n", __func__);
 
 #ifndef USE_CAM_GPIO_CFG
 	ret = gpio_request(GPIO_2M_nSTBY, "GPL2");
@@ -1814,7 +1814,7 @@ static int sr200pc20_power(int onoff)
 {
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s(): %s\n", __func__, onoff ? "on" : "down");
+	pr_debug("%s(): %s\n", __func__, onoff ? "on" : "down");
 
 	if (onoff) {
 #ifdef USE_CAM_GPIO_CFG
@@ -1998,7 +1998,7 @@ ssize_t cam_loglevel_show(struct device *dev, struct device_attribute *attr,
 ssize_t cam_loglevel_store(struct device *dev, struct device_attribute *attr,
 			 const char *buf, size_t count)
 {
-	printk(KERN_DEBUG "CAM buf=%s, count=%d\n", buf, count);
+	pr_debug("CAM buf=%s, count=%d\n", buf, count);
 
 	if (strstr(buf, "trace")) {
 		REAR_CAM_PLAT.dbg_level |= CAMDBG_LEVEL_TRACE;
@@ -2026,7 +2026,7 @@ ssize_t rear_camera_type_show(struct device *dev,
 	/* Change camera type properly */
 	char cam_type[] = "SLSI_S5K5CCGX";
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	return sprintf(buf, "%s\n", cam_type);
 }
 
@@ -2040,7 +2040,7 @@ ssize_t front_camera_type_show(struct device *dev,
 	char cam_type[] = "SILICONFILE_SR200PC20";
 #endif
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	return sprintf(buf, "%s\n", cam_type);
 }
 static DEVICE_ATTR(rear_camtype, 0664, rear_camera_type_show, NULL);
@@ -2166,7 +2166,7 @@ static void cam_init(void)
 	/* create device and device file for supporting camera sysfs.*/
 	cam_create_file(camera_class);
 
-	pr_info("%s: X\n", __func__);
+	pr_debug("%s: X\n", __func__);
 }
 
 #endif				/* CONFIG_VIDEO_FIMC */
@@ -2997,7 +2997,7 @@ static struct max8997_buck1_dvs_funcs *buck1_dvs_funcs;
 
 void max8997_set_arm_voltage_table(int *voltage_table, int arr_size)
 {
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	if (buck1_dvs_funcs && buck1_dvs_funcs->set_buck1_dvs_table)
 		buck1_dvs_funcs->set_buck1_dvs_table(buck1_dvs_funcs,
 			 voltage_table, arr_size);
@@ -3514,7 +3514,7 @@ static void sec_charger_melfas_cb(bool en)
 	if (charger_cbs && charger_cbs->inform_charger)
 		charger_cbs->inform_charger(charger_cbs, en);
 
-	printk(KERN_DEBUG "[TSP] %s - %s\n", __func__,
+	pr_debug("[TSP] %s - %s\n", __func__,
 		en ? "on" : "off");
 }
 static void register_tsp_callbacks(struct tsp_callbacks *cb)
@@ -3531,7 +3531,7 @@ static void ts_power_on(void)
 	msleep(70);
 	s3c_gpio_setpull(GPIO_TSP_INT, S3C_GPIO_PULL_NONE);
 	s3c_gpio_cfgpin(GPIO_TSP_INT, S3C_GPIO_SFN(0xf));
-	pr_info("[TSP] TSP POWER ON\n");
+	pr_debug("[TSP] TSP POWER ON\n");
 }
 
 static void ts_power_off(void)
@@ -3543,7 +3543,7 @@ static void ts_power_off(void)
 	s3c_gpio_setpull(GPIO_TSP_RST, S3C_GPIO_PULL_NONE);
 */
 	gpio_set_value(GPIO_TSP_RST, GPIO_LEVEL_LOW);
-	pr_info("[TSP] TSP POWER OFF");
+	pr_debug("[TSP] TSP POWER OFF");
 }
 
 static void ts_read_ta_status(bool *ta_status)
@@ -4244,7 +4244,7 @@ static void ts_power_on(void)
 	s3c_gpio_setpull(GPIO_TSP_INT_18V, S3C_GPIO_PULL_NONE);
 	s3c_gpio_cfgpin(GPIO_TSP_INT_18V, S3C_GPIO_SFN(0xf));
 	msleep(40);
-	printk(KERN_DEBUG"mxt_power_on is finished\n");
+	pr_debug("mxt_power_on is finished\n");
 
 }
 
@@ -4256,12 +4256,12 @@ static void ts_power_off(void)
 	s3c_gpio_cfgpin(GPIO_TSP_LDO_ON, S3C_GPIO_OUTPUT);
 	s3c_gpio_setpull(GPIO_TSP_LDO_ON, S3C_GPIO_PULL_NONE);
 	gpio_set_value(GPIO_TSP_LDO_ON, GPIO_LEVEL_LOW);
-	printk(KERN_DEBUG"mxt_power_off is finished\n");
+	pr_debug("mxt_power_off is finished\n");
 }
 
 static void ts_register_callback(void *function)
 {
-	printk(KERN_DEBUG"mxt_register_callback\n");
+	pr_debug("mxt_register_callback\n");
 	charging_cbs.tsp_set_charging_cable = function;
 }
 
@@ -4492,7 +4492,7 @@ static void  sec_mxt1386_charger_infom(bool en)
 	if (charger_callbacks && charger_callbacks->inform_charger)
 		charger_callbacks->inform_charger(charger_callbacks, en);
 
-	printk(KERN_DEBUG "[TSP] %s - %s\n", __func__,
+	pr_debug("[TSP] %s - %s\n", __func__,
 		en ? "on" : "off");
 }
 static void p3_register_touch_callbacks(struct mxt_callbacks *cb)
@@ -4701,7 +4701,7 @@ static struct mxt_platform_data p4w_touch_platform_data = {
 #if defined(CONFIG_RMI4_I2C)
 static int synaptics_tsp_pre_suspend(const void *pm_data)
 {
-	printk(KERN_DEBUG "[TSP] %s\n", __func__);
+	pr_debug("[TSP] %s\n", __func__);
 	s3c_gpio_cfgpin(GPIO_TSP_INT, S3C_GPIO_OUTPUT);
 	s3c_gpio_setpull(GPIO_TSP_INT, S3C_GPIO_PULL_NONE);
 	gpio_set_value(GPIO_TSP_INT, 0);
@@ -4717,7 +4717,7 @@ static int synaptics_tsp_pre_suspend(const void *pm_data)
 
 static int synaptics_tsp_post_resume(const void *pm_data)
 {
-	printk(KERN_DEBUG "[TSP] %s\n", __func__);
+	pr_debug("[TSP] %s\n", __func__);
 	s3c_gpio_cfgpin(GPIO_TSP_LDO_ON, S3C_GPIO_OUTPUT);
 	s3c_gpio_setpull(GPIO_TSP_LDO_ON, S3C_GPIO_PULL_NONE);
 	gpio_set_value(GPIO_TSP_LDO_ON, 1);
@@ -5275,7 +5275,7 @@ static struct i2c_board_info i2c_bh1721_emul[] __initdata = {
 #ifdef CONFIG_OPTICAL_GP2A
 static int gp2a_power(bool on)
 {
-	printk("%s : %d\n", __func__, on);
+	pr_debug("%s : %d\n", __func__, on);
 	return 0;
 }
 
@@ -5763,7 +5763,7 @@ static int reset_lcd(void)
 {
 	int err;
 
-	printk(KERN_INFO "%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 	err = gpio_request(GPIO_LCD_RST, "MLCD_RST");
 	if (err) {
@@ -5808,7 +5808,7 @@ static int lcd_power_on(void *pdev, int enable)
 {
 	int err;
 
-	printk(KERN_INFO "%s : enable=%d\n", __func__, enable);
+	pr_debug("%s : enable=%d\n", __func__, enable);
 
 	/* Request GPIO */
 	err = gpio_request(GPIO_LCD_LDO_EN, "MLCD_ON");
@@ -5999,11 +5999,11 @@ static void __init smdkc210_usbgadget_init(void)
 		s3c_device_android_usb.dev.platform_data;
 	if (android_pdata) {
 		unsigned int newluns = 2;
-		printk(KERN_DEBUG "usb: %s: default luns=%d, new luns=%d\n",
+		pr_debug("usb: %s: default luns=%d, new luns=%d\n",
 				__func__, android_pdata->nluns, newluns);
 		android_pdata->nluns = newluns;
 	} else {
-		printk(KERN_DEBUG "usb: %s android_pdata is not available\n",
+		pr_debug("usb: %s android_pdata is not available\n",
 				__func__);
 	}
 #endif
@@ -6031,7 +6031,7 @@ static void __init smdkc210_usbgadget_init(void)
 		pdata->phy_tune_mask |= 0x7 << 11;
 		pdata->phy_tune |= 0x4 << 11;
 #endif
-		printk(KERN_DEBUG "usb: %s tune_mask=0x%x, tune=0x%x\n",
+		pr_debug("usb: %s tune_mask=0x%x, tune=0x%x\n",
 			__func__, pdata->phy_tune_mask, pdata->phy_tune);
 	}
 
@@ -6185,7 +6185,7 @@ static void  sec_charger_cb(int set_cable_type)
 		is_usb_lpm_enter = true;
 		break;
 	}
-	pr_info("%s:cable_type=%d,tsp(%d),usb(%d),attached(%d),usblpm(%d)\n",
+	pr_debug("%s:cable_type=%d,tsp(%d),usb(%d),attached(%d),usblpm(%d)\n",
 		__func__, set_cable_type, cable_state_to_tsp,
 		cable_state_to_usb, is_cable_attached, is_usb_lpm_enter);
 
@@ -6212,7 +6212,7 @@ static void  sec_charger_cb(int set_cable_type)
 			usb_gadget_vbus_disconnect(gadget);
 	}
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 }
 
 static struct sec_battery_platform_data sec_battery_platform = {
@@ -6296,7 +6296,7 @@ static int host_port_enable(int port, int enable)
 {
 	int err;
 
-	pr_info("port(%d) control(%d)\n", port, enable);
+	pr_debug("port(%d) control(%d)\n", port, enable);
 
 	if (enable) {
 		err = s5p_ehci_port_control(&s5p_device_ehci, port, 1);
@@ -6437,7 +6437,7 @@ if (system_rev >= 4)
 			gpio_free(gpio_acc_5v);
 
 		} else
-			pr_info("[ACC] gpio_acc_5v is not set\n");
+			pr_debug("[ACC] gpio_acc_5v is not set\n");
 
 	} else {
 		if (0 == token) {
@@ -6498,7 +6498,7 @@ static void check_uart_path(bool en)
 		gpio_direction_output(gpio_uart_sel2, 1);
 	else
 		gpio_direction_output(gpio_uart_sel2, 0);
-	printk(KERN_DEBUG "[Keyboard] uart_sel2 : %d\n",
+	pr_debug("[Keyboard] uart_sel2 : %d\n",
 		gpio_get_value(gpio_uart_sel2));
 #else
 	gpio_uart_sel = GPIO_UART_SEL;
@@ -6509,7 +6509,7 @@ static void check_uart_path(bool en)
 	else
 		gpio_direction_output(gpio_uart_sel, 0);
 
-	printk(KERN_DEBUG "[Keyboard] uart_sel : %d\n",
+	pr_debug("[Keyboard] uart_sel : %d\n",
 		gpio_get_value(gpio_uart_sel));
 }
 
@@ -6572,7 +6572,7 @@ static void px_usb_otg_en(int active)
 	int retry_cnt = 1;
 #endif
 
-	pr_info("otg %s : %d\n", __func__, active);
+	pr_debug("otg %s : %d\n", __func__, active);
 
 	usb_switch_lock();
 

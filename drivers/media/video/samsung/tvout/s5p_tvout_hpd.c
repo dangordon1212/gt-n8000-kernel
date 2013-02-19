@@ -25,6 +25,7 @@
 #include "s5p_tvout_common_lib.h"
 #include "hw_if/hw_if.h"
 
+#undef CONFIG_TVOUT_DEBUG
 #ifdef CONFIG_TVOUT_DEBUG
 #define HPDIFPRINTK(fmt, args...)					\
 do {									\
@@ -33,12 +34,13 @@ do {									\
 			__func__ , ## args);				\
 	}								\
 } while (0)
-#else
-#define HPDIFPRINTK(fmt, args...)
-#endif
 
 #define HPDPRINTK(fmt, args...) \
 	printk(KERN_INFO "[HPD_IF] %s: " fmt, __func__ , ## args)
+#else
+#define HPDIFPRINTK(fmt, args...)
+#define HPDPRINTK(fmt, args...)
+#endif
 
 #define VERSION         "1.2"	/* Driver version number */
 #define HPD_MINOR       243	/* Major 10, Minor 243, /dev/hpd */
@@ -250,7 +252,7 @@ void hdmi_send_audio_ch_num(
 {
 	if (last_uevent_state == HPD_LO) {
 		printk(KERN_INFO	"[WARNING] %s() "
-			"HDMI Audio ch = %d but not send\n",
+			"HDMI Audio ch = %d but not sent\n",
 			__func__, supported_ch_num);
 		return;
 	} else
@@ -297,7 +299,7 @@ static long s5p_hpd_ioctl(struct file *file,
 				return -EFAULT;
 			}
 
-			printk(KERN_INFO	"%s() - AUDIO_CH_SET_STATE = 0x%x\n",
+			pr_debug("%s() - AUDIO_CH_SET_STATE = 0x%x\n",
 				__func__, supported_ch_num);
 			hdmi_send_audio_ch_num(supported_ch_num,
 				&g_audio_ch_switch);
@@ -558,11 +560,11 @@ void mhl_hpd_handler(bool onoff)
 	static int old_state;
 
 	if (old_state == onoff) {
-		printk(KERN_INFO	"%s() state is aready %s\n",
+		pr_debug("%s() state is aready %s\n",
 			__func__, onoff ? "on" : "off");
 		return;
 	} else {
-		printk(KERN_INFO	"%s(%d), old_state(%d)\n",
+		pr_debug("%s(%d), old_state(%d)\n",
 			__func__, onoff, old_state);
 		old_state = onoff;
 	}

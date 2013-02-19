@@ -99,7 +99,7 @@ static int brcm_init_wlan_mem(void)
 	wlan_static_scan_buf1 = kmalloc(65536, GFP_KERNEL);
 	if (!wlan_static_scan_buf1)
 		goto err_mem_alloc;
-	printk(KERN_INFO"%s: WIFI MEM Allocated\n", __func__);
+	printk(KERN_INFO "%s: WIFI MEM Allocated\n", __func__);
 	return 0;
 
  err_mem_alloc:
@@ -158,7 +158,7 @@ static void s3c_config_gpio_alive_table
 (*gpio_table)[4])
 {
 	u32 i, gpio;
-	printk(KERN_INFO"gpio_table = [%d]\n" , array_size);
+	printk(KERN_INFO "gpio_table = [%d]\n" , array_size);
 	for (i = 0; i < array_size; i++) {
 		gpio = gpio_table[i][0];
 		s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(gpio_table[i][1]));
@@ -170,9 +170,7 @@ static void s3c_config_gpio_alive_table
 
 static int brcm_wlan_power(int onoff)
 {
-	printk(KERN_INFO"------------------------------------------------");
-	printk(KERN_INFO"------------------------------------------------\n");
-	printk(KERN_INFO"%s Enter: power %s\n", __func__, onoff ? "on" : "off");
+	printk(KERN_INFO "%s Enter: power %s\n", __func__, onoff ? "on" : "off");
 	if (onoff) {
 		s3c_config_gpio_alive_table
 		(ARRAY_SIZE(wlan_on_gpio_table), wlan_on_gpio_table);
@@ -323,7 +321,7 @@ static struct platform_device brcm_device_wlan = {
 
 int __init brcm_wlan_init(void)
 {
-	printk(KERN_INFO"%s: start\n", __func__);
+	printk(KERN_INFO "%s: start\n", __func__);
 
 #ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
 	brcm_init_wlan_mem();

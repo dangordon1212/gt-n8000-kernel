@@ -95,7 +95,7 @@
 /* Feature */
 #define TSP_FIRMUP_ON_PROBE	1
 #define TSP_BOOSTER			1
-#define TSP_DEBUG_INFO			0
+#undef TSP_DEBUG_INFO
 #define TSP_SEC_SYSFS			1
 #define TSP_USE_SHAPETOUCH	1
 #define CHECK_ANTITOUCH		1

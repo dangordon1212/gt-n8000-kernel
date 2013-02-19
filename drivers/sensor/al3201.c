@@ -418,7 +418,7 @@ static ssize_t al3201_light_enable_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	pr_info("%s, new_value = %d, old state = %d\n",
+	pr_debug("%s, new_value = %d, old state = %d\n",
 		__func__, new_value, data->state);
 
 	if (new_value && (!data->state)) {

@@ -237,7 +237,7 @@ static int s5k6a3_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	ret = gpio_request(GPIO_VT_CAM_nRST, "GPJ1");
 	if (unlikely(ret)) {
@@ -291,7 +291,7 @@ static int s5k6a3_power_down(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	ret = gpio_request(GPIO_VT_CAM_nRST, "GPJ1");
 	if (unlikely(ret)) {
@@ -381,7 +381,7 @@ static int s5k6a3_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	s5k6a3_gpio_request();
 
@@ -455,7 +455,7 @@ static int s5k6a3_power_down(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	s5k6a3_gpio_request();
 
@@ -562,7 +562,7 @@ static int s5k6a3_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	s5k6a3_gpio_request();
 
@@ -628,7 +628,7 @@ static int s5k6a3_power_down(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	s5k6a3_gpio_request();
 
@@ -787,7 +787,7 @@ static void s5c73m3_set_vdd_core(int level)
 {
 	vddCore = level;
 	isVddCoreSet = true;
-	printk(KERN_ERR "%s : %d\n", __func__, vddCore);
+	pr_debug("%s : %d\n", __func__, vddCore);
 }
 
 static void s5c73m3_check_vdd_core(void)
@@ -860,7 +860,7 @@ static int s5c73m3_is_isp_reset(void)
 
 		ret = gpio_request(GPIO_ISP_RESET, "GPF1");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_RESET)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_RESET)\n");
 		return ret;
 	}
 
@@ -887,13 +887,13 @@ static int s5c73m3_gpio_request(void)
 	else
 	ret = gpio_request(GPIO_ISP_STANDBY, "GPM0");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_STANDBY)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_STANDBY)\n");
 		return ret;
 	}
 
 	ret = gpio_request(GPIO_ISP_RESET, "GPF1");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_RESET)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_RESET)\n");
 		return ret;
 	}
 
@@ -914,7 +914,7 @@ static int s5c73m3_gpio_request(void)
 		ret = gpio_request(GPIO_CAM_AF_EN, "GPM0");
 
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_CAM_AF_EN)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_CAM_AF_EN)\n");
 		return ret;
 	}
 
@@ -970,12 +970,12 @@ static int s5c73m3_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 #ifndef CONFIG_VIDEO_SLP_S5C73M3
 	s5c73m3_check_vdd_core();
 #endif
-	printk(KERN_DEBUG "s5c73m3 vddCore : %d\n", vddCore);
+	pr_debug("s5c73m3 vddCore : %d\n", vddCore);
 
 	s5c73m3_gpio_request();
 
@@ -1006,7 +1006,7 @@ static int s5c73m3_power_on(void)
 	/* CAM_SENSOR_CORE_1.2V */
 #if defined(CONFIG_MACH_C1) || defined(CONFIG_MACH_T0) || \
 	defined(CONFIG_MACH_SLP_T0_LTE) || defined(CONFIG_MACH_BAFFIN)
-	printk(KERN_DEBUG "system_rev : %d\n", system_rev);
+	pr_debug("system_rev : %d\n", system_rev);
 	if (system_rev >= USE_8M_CAM_SENSOR_CORE_REVISION) {
 		ret = gpio_direction_output(GPIO_CAM_SENSOR_CORE_EN, 1);
 		CAM_CHECK_ERR_RET(ret, "output CAM_SENSOR_CORE_EN");
@@ -1094,7 +1094,7 @@ static int s5c73m3_power_down(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	s5c73m3_gpio_request();
 
@@ -1211,13 +1211,13 @@ static int s5c73m3_gpio_request(void)
 
 	ret = gpio_request(GPIO_ISP_STANDBY, "GPM0");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_STANDBY)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_STANDBY)\n");
 		return ret;
 	}
 
 	ret = gpio_request(GPIO_ISP_RESET, "GPF1");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_RESET)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_RESET)\n");
 		return ret;
 	}
 
@@ -1230,7 +1230,7 @@ static int s5c73m3_gpio_request(void)
 
 	ret = gpio_request(GPIO_CAM_AF_EN, "GPM0");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_CAM_AF_EN)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_CAM_AF_EN)\n");
 		return ret;
 	}
 
@@ -1276,12 +1276,12 @@ static int s5c73m3_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 #ifndef CONFIG_VIDEO_SLP_S5C73M3
 	s5c73m3_check_vdd_core();
 #endif
-	printk(KERN_DEBUG "s5c73m3 vddCore : %d\n", vddCore);
+	pr_debug("s5c73m3 vddCore : %d\n", vddCore);
 
 	s5c73m3_gpio_request();
 
@@ -1305,7 +1305,7 @@ static int s5c73m3_power_on(void)
 #if defined(CONFIG_MACH_C1) || defined(CONFIG_MACH_T0) || \
 	defined(CONFIG_MACH_SLP_T0_LTE) || defined(CONFIG_MACH_BAFFIN) || \
 	defined(CONFIG_MACH_M3_USA_TMO)
-	printk(KERN_DEBUG "system_rev : %d\n", system_rev);
+	pr_debug("system_rev : %d\n", system_rev);
 	if (system_rev >= USE_8M_CAM_SENSOR_CORE_REVISION) {
 		ret = gpio_direction_output(GPIO_CAM_SENSOR_CORE_EN, 1);
 		CAM_CHECK_ERR_RET(ret, "output CAM_SENSOR_CORE_EN");
@@ -1385,7 +1385,7 @@ static int s5c73m3_power_down(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	s5c73m3_gpio_request();
 
@@ -1577,16 +1577,16 @@ static int m5mo_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	ret = gpio_request(GPIO_CAM_VT_nSTBY, "GPL2");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_CAM_VGA_nSTBY)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_CAM_VGA_nSTBY)\n");
 		return ret;
 	}
 	ret = gpio_request(GPIO_CAM_VT_nRST, "GPL2");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_CAM_VGA_nRST)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_CAM_VGA_nRST)\n");
 		return ret;
 	}
 
@@ -1597,7 +1597,7 @@ static int m5mo_power_on(void)
 	}
 	ret = gpio_request(GPIO_ISP_RESET, "GPY3");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_RESET)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_RESET)\n");
 		return ret;
 	}
 	/* CAM_VT_nSTBY low */
@@ -1716,16 +1716,16 @@ static int m5mo_power_down(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	ret = gpio_request(GPIO_CAM_VT_nSTBY, "GPL2");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_CAM_VGA_nSTBY)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_CAM_VGA_nSTBY)\n");
 		return ret;
 	}
 	ret = gpio_request(GPIO_CAM_VT_nRST, "GPL2");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_CAM_VGA_nRST)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_CAM_VGA_nRST)\n");
 		return ret;
 	}
 		ret = gpio_request(GPIO_ISP_CORE_EN, "GPM0");
@@ -1735,7 +1735,7 @@ static int m5mo_power_down(void)
 	}
 	ret = gpio_request(GPIO_ISP_RESET, "GPY3");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_RESET)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_RESET)\n");
 		return ret;
 	}
 
@@ -1853,7 +1853,7 @@ static int m5mo_power(int enable)
 {
 	int ret = 0;
 
-	printk(KERN_ERR "%s %s\n", __func__, enable ? "on" : "down");
+	pr_debug("%s %s\n", __func__, enable ? "on" : "down");
 	if (enable) {
 		ret = m5mo_power_on();
 		if (unlikely(ret))
@@ -1943,17 +1943,17 @@ static int m9mo_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	ret = gpio_request(GPIO_ISP_CORE_EN, "GPM0");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_CORE_EN)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_CORE_EN)\n");
 		return ret;
 	}
 
 	ret = gpio_request(GPIO_ISP_RESET, "GPF1");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_RESET)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_RESET)\n");
 		return ret;
 	}
 	/* CAM_ISP_CORE_EN */
@@ -2030,30 +2030,30 @@ static int m9mo_power_down(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s: in\n", __func__);
+	pr_debug("%s: in\n", __func__);
 
 	if (system_rev > 0) {
 		ret = gpio_request(GPIO_MOT_EN, "GPM0");
 		if (ret) {
-			printk(KERN_ERR "faile to request gpio(GPIO_MOT_EN)\n");
+			printk(KERN_ERR "fail to request gpio(GPIO_MOT_EN)\n");
 			return ret;
 		}
 		ret = gpio_request(GPIO_SAMBAZ_RESET, "GPM0");
 		if (ret) {
-			printk(KERN_ERR "faile to request gpio(GPIO_SAMBAZ_RESET)\n");
+			printk(KERN_ERR "fail to request gpio(GPIO_SAMBAZ_RESET)\n");
 			return ret;
 		}
 	}
 
 		ret = gpio_request(GPIO_ISP_CORE_EN, "GPM0");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_CORE_EN)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_CORE_EN)\n");
 		return ret;
 	}
 
 	ret = gpio_request(GPIO_ISP_RESET, "GPF1");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_RESET)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_RESET)\n");
 		return ret;
 	}
 	/* s3c_i2c0_force_stop(); */
@@ -2203,7 +2203,7 @@ static int m9mo_af_led_power(int enable)
 {
 	int ret = 0;
 
-	printk(KERN_ERR "%s %s\n", __func__, enable ? "on" : "down");
+	pr_debug("%s %s\n", __func__, enable ? "on" : "down");
 	if (enable) {
 		ret = m9mo_af_led_power_on();
 		if (unlikely(ret))
@@ -2219,7 +2219,7 @@ static int m9mo_power(int enable)
 {
 	int ret = 0;
 
-	printk(KERN_ERR "%s %s\n", __func__, enable ? "on" : "down");
+	pr_debug("%s %s\n", __func__, enable ? "on" : "down");
 	if (enable) {
 		ret = m9mo_power_on();
 		if (unlikely(ret))
@@ -2236,7 +2236,7 @@ error_out:
 
 static int m9mo_config_isp_irq(void)
 {
-printk(KERN_ERR "m9mo_config_isp_irq~~~~~~~~~~\n");
+	pr_debug("m9mo_config_isp_irq~~~~~~~~~~\n");
 	s3c_gpio_cfgpin(GPIO_ISP_INT, S3C_GPIO_SFN(0xF));
 	s3c_gpio_setpull(GPIO_ISP_INT, S3C_GPIO_PULL_NONE);
 	return 0;
@@ -2251,12 +2251,12 @@ static int m9mo_config_sambaz(int enable)
 		if (system_rev > 0) {
 			ret = gpio_request(GPIO_MOT_EN, "GPM0");
 			if (ret) {
-				printk(KERN_ERR "faile to request gpio(GPIO_ISP_CORE_EN)\n");
+				printk(KERN_ERR "fail to request gpio(GPIO_ISP_CORE_EN)\n");
 				return ret;
 			}
 			ret = gpio_request(GPIO_SAMBAZ_RESET, "GPM0");
 			if (ret) {
-				printk(KERN_ERR "faile to request gpio(GPIO_ISP_RESET)\n");
+				printk(KERN_ERR "fail to request gpio(GPIO_ISP_RESET)\n");
 				return ret;
 			}
 			ret = gpio_direction_output(GPIO_MOT_EN, 1);
@@ -2379,7 +2379,7 @@ static void isx012_flashtimer_handler(unsigned long data)
 	int ret = -ENODEV;
 	atomic_t *flash_status = (atomic_t *)data;
 
-	pr_info("********** flash_handler off **********\n");
+	pr_debug("********** flash_handler off **********\n");
 
 	ret = gpio_direction_output(GPIO_CAM_FLASH_EN, 0);
 	atomic_set(flash_status, ISX012_FLASH_OFF);
@@ -2397,7 +2397,7 @@ static int isx012_flash_en(u32 mode, u32 onoff)
 			0, (unsigned long)&flash_status);
 	int ret = 0;
 
-	printk(KERN_DEBUG "flash_en: mode=%d, on=%d\n", mode, onoff);
+	pr_debug("flash_en: mode=%d, on=%d\n", mode, onoff);
 
 	if (unlikely((u32)mode >= ISX012_FLASH_MODE_MAX)) {
 		pr_err("flash_en: ERROR, invalid flash mode(%d)\n", mode);
@@ -2440,7 +2440,7 @@ static int isx012_flash_en(u32 mode, u32 onoff)
 			ret = gpio_direction_output(GPIO_CAM_MOVIE_EN, 0);
 		else {
 			if (del_timer_sync(&flash_timer)) {
-				pr_info("flash_en: terminate flash timer...\n");
+				pr_debug("flash_en: terminate flash timer...\n");
 				ret = gpio_direction_output(GPIO_CAM_FLASH_EN,
 							0);
 			}
@@ -2473,7 +2473,7 @@ static int isx012_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "[ISX012] power on\n");
+	pr_debug("[ISX012] power on\n");
 
 #ifndef USE_CAM_GPIO_CFG
 	ret = gpio_request(GPIO_5M_nSTBY, "GPJ0");
@@ -2551,7 +2551,7 @@ static int isx012_power_down(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "[ISX012] power down\n");
+	pr_debug("[ISX012] power down\n");
 
 	ret = gpio_request(GPIO_5M_nSTBY, "GPJ0");
 	if (unlikely(ret)) {
@@ -2652,7 +2652,7 @@ static int isx012_enable_standby(bool enable)
 {
 	int err;
 
-	pr_info("%s: %s\n", __func__, enable ? "on" : "off");
+	pr_debug("%s: %s\n", __func__, enable ? "on" : "off");
 
 	err = gpio_request(GPIO_5M_nSTBY, "GPJ0");
 	if (unlikely(err)) {
@@ -2673,7 +2673,7 @@ static int px_cam_cfg_init(void)
 {
 	int ret = -ENODEV;
 
-	pr_info("cam_cfg_init\n");
+	pr_debug("cam_cfg_init\n");
 
 	ret = gpio_request(GPIO_CAM_MOVIE_EN, "GPM3");
 	if (unlikely(ret)) {
@@ -2760,7 +2760,7 @@ static ssize_t isx012_camtype_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	const char cam_type[] = "SONY_ISX012";
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	return sprintf(buf, "%s\n", cam_type);
 }
 static DEVICE_ATTR(rear_camtype, S_IRUGO, isx012_camtype_show, NULL);
@@ -2833,7 +2833,7 @@ static int s5k5ccgx_power_on(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s in P4C,P2\n", __func__);
+	pr_debug("%s in P4C,P2\n", __func__);
 
 #ifndef USE_CAM_GPIO_CFG
 	ret = gpio_request(GPIO_2M_nSTBY, "GPL2");
@@ -2959,7 +2959,7 @@ static int s5k5ccgx_power_down(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s in P4C,P2\n", __func__);
+	pr_debug("%s in P4C,P2\n", __func__);
 
 #ifndef USE_CAM_GPIO_CFG
 	ret = gpio_request(GPIO_2M_nSTBY, "GPL2");
@@ -3067,7 +3067,7 @@ static int s5k5ccgx_power(int enable)
 {
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s %s\n", __func__, enable ? "on" : "down");
+	pr_debug("%s %s\n", __func__, enable ? "on" : "down");
 	if (enable) {
 #ifdef USE_CAM_GPIO_CFG
 		if (cfg_gpio_err) {
@@ -3286,12 +3286,12 @@ static int sr200pc20m_power_on(void)
 
 	ret = gpio_request(GPIO_CAM_VT_nSTBY, "GPL2");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_CAM_VGA_nSTBY)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_CAM_VGA_nSTBY)\n");
 		return ret;
 	}
 	ret = gpio_request(GPIO_CAM_VT_nRST, "GPL2");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_CAM_VGA_nRST)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_CAM_VGA_nRST)\n");
 		return ret;
 	}
 	ret = gpio_request(GPIO_ISP_CORE_EN, "GPM0");
@@ -3301,7 +3301,7 @@ static int sr200pc20m_power_on(void)
 	}
 	ret = gpio_request(GPIO_ISP_RESET, "GPY3");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_RESET)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_RESET)\n");
 		return ret;
 	}
 
@@ -3400,16 +3400,16 @@ static int sr200pc20m_power_off(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s in\n", __func__);
+	pr_debug("%s in\n", __func__);
 
 	ret = gpio_request(GPIO_CAM_VT_nSTBY, "GPL2");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_CAM_VGA_nSTBY)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_CAM_VGA_nSTBY)\n");
 		return ret;
 	}
 	ret = gpio_request(GPIO_CAM_VT_nRST, "GPL2");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_CAM_VGA_nRST)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_CAM_VGA_nRST)\n");
 		return ret;
 	}
 	ret = gpio_request(GPIO_ISP_CORE_EN, "GPM0");
@@ -3419,7 +3419,7 @@ static int sr200pc20m_power_off(void)
 	}
 	ret = gpio_request(GPIO_ISP_RESET, "GPY3");
 	if (ret) {
-		printk(KERN_ERR "faile to request gpio(GPIO_ISP_RESET)\n");
+		printk(KERN_ERR "fail to request gpio(GPIO_ISP_RESET)\n");
 		return ret;
 	}
 
@@ -3506,7 +3506,7 @@ static int sr200pc20m_power(int onoff)
 {
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s(): %s\n", __func__, onoff ? "on" : "down");
+	pr_debug("%s(): %s\n", __func__, onoff ? "on" : "down");
 
 	if (onoff) {
 		ret = sr200pc20m_power_on();
@@ -3581,7 +3581,7 @@ static struct s3c_platform_camera sr200pc20m = {
 static int sr200pc20_get_i2c_busnum(void)
 {
 #ifdef CONFIG_MACH_P4
-	pr_info("%s: system_rev=%d\n", __func__);
+	pr_debug("%s: system_rev=%d\n", __func__);
 	if (system_rev >= 2)
 		return 0;
 	else
@@ -3726,7 +3726,7 @@ static int sr200pc20_power_off(void)
 	struct regulator *regulator;
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s in\n", __func__);
+	pr_debug("%s in\n", __func__);
 
 #ifndef USE_CAM_GPIO_CFG
 	ret = gpio_request(GPIO_2M_nSTBY, "GPL2");
@@ -3825,7 +3825,7 @@ static int sr200pc20_power(int onoff)
 {
 	int ret = 0;
 
-	printk(KERN_DEBUG "%s(): %s\n", __func__, onoff ? "on" : "down");
+	pr_debug("%s(): %s\n", __func__, onoff ? "on" : "down");
 
 	if (onoff) {
 #ifdef USE_CAM_GPIO_CFG

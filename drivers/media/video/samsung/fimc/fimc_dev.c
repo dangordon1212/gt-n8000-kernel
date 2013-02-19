@@ -535,7 +535,7 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 	static struct timeval curr_time, before_time;
 	if (!fimc_cam_use) {
 		do_gettimeofday(&curr_time);
-		printk(KERN_DEBUG "%s : time : %ld\n", __func__,
+		printk(KERN_INFO "%s : time : %ld\n", __func__,
 				curr_time.tv_usec - before_time.tv_usec);
 		before_time.tv_usec = curr_time.tv_usec;
 	}
@@ -1485,7 +1485,7 @@ static int fimc_open(struct file *filp)
 		goto resource_busy;
 	} else {
 		atomic_inc(&ctrl->in_use);
-		fimc_warn("FIMC%d %d opened.\n",
+		fimc_dbg("FIMC%d %d opened.\n",
 			 ctrl->id, atomic_read(&ctrl->in_use));
 	}
 	in_use = atomic_read(&ctrl->in_use);
@@ -1502,7 +1502,7 @@ static int fimc_open(struct file *filp)
 		ctrl->mem.cpu_addr = dma_alloc_coherent(ctrl->dev,
 					ctrl->mem.size, &(ctrl->mem.base), 0);
 		if (!ctrl->mem.cpu_addr) {
-			printk(KERN_INFO "FIMC%d: dma_alloc_coherent failed\n",
+			printk(KERN_ERR "FIMC%d: dma_alloc_coherent failed\n",
 								ctrl->id);
 			ret = -ENOMEM;
 			goto dma_alloc_err;
@@ -1746,7 +1746,7 @@ static int fimc_release(struct file *filp)
 	 * Close window for FIMC if window is enabled.
 	 */
 	if (ctrl->fb.is_enable == 1) {
-		fimc_warn("WIN_OFF for FIMC%d\n", ctrl->id);
+		fimc_dbg("WIN_OFF for FIMC%d\n", ctrl->id);
 		ret = s3cfb_direct_ioctl(ctrl->id, S3CFB_SET_WIN_OFF,
 						(unsigned long)NULL);
 		if (ret < 0) {
@@ -1765,7 +1765,7 @@ static int fimc_release(struct file *filp)
 		ctrl->mem.cpu_addr = NULL;
 	}
 #endif
-	fimc_warn("FIMC%d %d released.\n",
+	fimc_dbg("FIMC%d %d released.\n",
 			ctrl->id, atomic_read(&ctrl->in_use));
 
 	return 0;
@@ -2297,7 +2297,7 @@ static inline int fimc_suspend_cap(struct fimc_control *ctrl)
 	struct fimc_global *fimc = get_fimc_dev();
 #if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
 	struct platform_device *pdev = to_platform_device(ctrl->dev);
-	printk(KERN_INFO "%s\n", __func__);
+	fimc_dbg("%s\n", __func__);
 	if (ctrl->power_status == FIMC_POWER_ON)
 		pm_runtime_put_sync(&pdev->dev);
 #endif
@@ -2312,7 +2312,7 @@ static inline int fimc_suspend_cap(struct fimc_control *ctrl)
 		if (ctrl->id == FIMC0 && ctrl->cam->initialized) {
 			ctrl->cam->initialized = 0;
 			if (ctrl->cam->use_isp) {
-				printk(KERN_INFO "%s use_isp s_power down\n", __func__);
+				fimc_dbg("%s use_isp s_power down\n", __func__);
 				v4l2_subdev_call(ctrl->is.sd, core, s_power, 0);
 			} else
 				v4l2_subdev_call(ctrl->cam->sd, core, s_power, 0);
@@ -2327,7 +2327,7 @@ static inline int fimc_suspend_cap(struct fimc_control *ctrl)
 		}
 	}
 	ctrl->power_status = FIMC_POWER_OFF;
-	printk(KERN_INFO "%s--\n", __func__);
+	fimc_dbg("%s--\n", __func__);
 
 	return 0;
 }
@@ -2342,7 +2342,7 @@ int fimc_suspend(struct platform_device *pdev, pm_message_t state)
 	ctrl = get_fimc_ctrl(id);
 	pdata = to_fimc_plat(ctrl->dev);
 
-	printk(KERN_INFO "%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	if (ctrl->out)
 		fimc_suspend_out(ctrl);
 
@@ -2356,7 +2356,7 @@ int fimc_suspend(struct platform_device *pdev, pm_message_t state)
 		pdata->clk_off(pdev, &ctrl->clk);
 #endif
 
-	printk(KERN_INFO "%s--\n", __func__);
+	pr_debug("%s--\n", __func__);
 	return 0;
 }
 
@@ -2408,7 +2408,7 @@ static inline int fimc_resume_cap(struct fimc_control *ctrl)
 #if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
 	struct platform_device *pdev = to_platform_device(ctrl->dev);
 #endif
-	printk(KERN_INFO "%s\n", __func__);
+	fimc_dbg("%s\n", __func__);
 #if (defined(CONFIG_EXYNOS_DEV_PD) && defined(CONFIG_PM_RUNTIME))
 	if (ctrl->power_status == FIMC_POWER_OFF)
 		pm_runtime_get_sync(&pdev->dev);
@@ -2454,7 +2454,7 @@ static inline int fimc_resume_cap(struct fimc_control *ctrl)
 	}
 	/* fimc_streamon_capture((void *)ctrl); */
 	ctrl->power_status = FIMC_POWER_ON;
-	printk(KERN_INFO "%s--\n", __func__);
+	fimc_dbg("%s--\n", __func__);
 
 	return 0;
 }
@@ -2467,7 +2467,7 @@ int fimc_resume(struct platform_device *pdev)
 
 	ctrl = get_fimc_ctrl(id);
 	pdata = to_fimc_plat(ctrl->dev);
-	printk(KERN_INFO "%s", __func__);
+	pr_debug("%s", __func__);
 	if (atomic_read(&ctrl->in_use) && pdata->clk_on)
 		pdata->clk_on(pdev, &ctrl->clk);
 
@@ -2479,7 +2479,7 @@ int fimc_resume(struct platform_device *pdev)
 	else
 		ctrl->status = FIMC_STREAMOFF;
 
-	printk(KERN_INFO "%s--", __func__);
+	pr_debug("%s--", __func__);
 	return 0;
 }
 
@@ -2505,7 +2505,7 @@ static int fimc_runtime_suspend_cap(struct fimc_control *ctrl)
 {
 	struct platform_device *pdev = to_platform_device(ctrl->dev);
 	struct clk *pxl_async = NULL;
-	printk(KERN_INFO "%s FIMC%d\n", __func__, ctrl->id);
+	fimc_dbg("%s FIMC%d\n", __func__, ctrl->id);
 
 	ctrl->power_status = FIMC_POWER_SUSPEND;
 
@@ -2541,7 +2541,7 @@ static int fimc_runtime_suspend_cap(struct fimc_control *ctrl)
 		clk_disable(pxl_async);
 		clk_put(pxl_async);
 	}
-	printk(KERN_INFO "%s FIMC%d --\n", __func__, ctrl->id);
+	fimc_dbg("%s FIMC%d --\n", __func__, ctrl->id);
 
 	return 0;
 }
@@ -2579,7 +2579,7 @@ static int fimc_runtime_resume_cap(struct fimc_control *ctrl)
 {
 	struct platform_device *pdev = to_platform_device(ctrl->dev);
 	struct clk *pxl_async = NULL;
-	printk(KERN_INFO "%s FIMC%d\n", __func__, ctrl->id);
+	fimc_dbg("%s FIMC%d\n", __func__, ctrl->id);
 
 	if (!ctrl->cam) {
 		fimc_err("%s: No capture device.\n", __func__);
@@ -2607,7 +2607,7 @@ static int fimc_runtime_resume_cap(struct fimc_control *ctrl)
 		clk_enable(pxl_async);
 		clk_put(pxl_async);
 	}
-	printk(KERN_INFO "%s FIMC%d --\n", __func__, ctrl->id);
+	fimc_dbg("%s FIMC%d --\n", __func__, ctrl->id);
 	return 0;
 }
 static int fimc_runtime_resume(struct device *dev)

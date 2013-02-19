@@ -470,7 +470,7 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 	static struct timeval curr_time, before_time;
 	if (ctrl->id == FIMC2) {
 		do_gettimeofday(&curr_time);
-		printk(KERN_DEBUG "%s : time : %ld\n", __func__,
+		pr_debug("%s : time : %ld\n", __func__,
 				curr_time.tv_usec - before_time.tv_usec);
 		before_time.tv_usec = curr_time.tv_usec;
 	}
@@ -508,7 +508,7 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 				ctrl->cap->lastirq = 0;
 				fimc_stop_capture(ctrl);
 				ctrl->status = FIMC_BUFFER_STOP;
-				printk(KERN_DEBUG "fimc_irq_cap[%d] available_bufnum = %d\n",
+				pr_debug("fimc_irq_cap[%d] available_bufnum = %d\n",
 					ctrl->id, available_bufnum);
 			}
 		} else {
@@ -1081,7 +1081,7 @@ static int fimc_open(struct file *filp)
 		goto resource_busy;
 	} else {
 		atomic_inc(&ctrl->in_use);
-		fimc_warn("FIMC%d %d opened.\n",
+		fimc_dbg("FIMC%d %d opened.\n",
 			 ctrl->id, atomic_read(&ctrl->in_use));
 	}
 	in_use = atomic_read(&ctrl->in_use);
@@ -1301,7 +1301,7 @@ static int fimc_release(struct file *filp)
 	 * Close window for FIMC if window is enabled.
 	 */
 	if (ctrl->fb.is_enable == 1) {
-		fimc_warn("WIN_OFF for FIMC%d\n", ctrl->id);
+		fimc_dbg("WIN_OFF for FIMC%d\n", ctrl->id);
 		ret = s3cfb_direct_ioctl(ctrl->id, S3CFB_SET_WIN_OFF,
 						(unsigned long)NULL);
 		if (ret < 0) {
@@ -1312,7 +1312,7 @@ static int fimc_release(struct file *filp)
 		ctrl->fb.is_enable = 0;
 	}
 
-	fimc_warn("FIMC%d %d released.\n",
+	fimc_dbg("FIMC%d %d released.\n",
 			ctrl->id, atomic_read(&ctrl->in_use));
 
 	return 0;

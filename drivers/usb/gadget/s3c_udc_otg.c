@@ -225,7 +225,7 @@ static void udc_core_disconect(struct s3c_udc *dev)
 {
 	u32 uTemp;
 
-	printk(KERN_DEBUG "usb: %s -dev->softconnect=%d\n",
+	pr_debug("usb: %s -dev->softconnect=%d\n",
 						__func__, dev->softconnect);
 	uTemp = __raw_readl(dev->regs + S3C_UDC_OTG_DCTL);
 	uTemp |= SOFT_DISCONNECT;
@@ -325,10 +325,10 @@ int s3c_vbus_enable(struct usb_gadget *gadget, int is_active)
 	mutex_lock(&dev->mutex);
 
 	if (dev->is_usb_ready) {
-		printk(KERN_DEBUG "usb: %s, ready u_e: %d, is_active: %d\n",
+		pr_debug("usb: %s, ready u_e: %d, is_active: %d\n",
 				__func__, dev->udc_enabled, is_active);
 	} else { /* USB is not ready to enable USB PHY */
-		printk(KERN_DEBUG "usb: %s, not ready u_e: %d, is_active: %d\n",
+		pr_debug("usb: %s, not ready u_e: %d, is_active: %d\n",
 				__func__, dev->udc_enabled, is_active);
 		dev->udc_enabled = is_active;
 		mutex_unlock(&dev->mutex);
@@ -339,7 +339,7 @@ int s3c_vbus_enable(struct usb_gadget *gadget, int is_active)
 		dev->udc_enabled = is_active;
 
 		if (!is_active) {
-			printk(KERN_DEBUG "usb: %s is_active=%d(udc_disable)\n",
+			pr_debug("usb: %s is_active=%d(udc_disable)\n",
 					__func__, is_active);
 			spin_lock_irqsave(&dev->lock, flags);
 			stop_activity(dev, dev->driver);
@@ -351,7 +351,7 @@ int s3c_vbus_enable(struct usb_gadget *gadget, int is_active)
 			wake_lock_timeout(&dev->usbd_wake_lock, HZ * 5);
 			wake_lock_timeout(&dev->usb_cb_wake_lock, HZ * 5);
 		} else {
-			printk(KERN_DEBUG "usb: %s is_active=%d(udc_enable),"
+			pr_debug("usb: %s is_active=%d(udc_enable),"
 							"softconnect=%d\n",
 					__func__, is_active, dev->softconnect);
 			wake_lock(&dev->usb_cb_wake_lock);
@@ -361,7 +361,7 @@ int s3c_vbus_enable(struct usb_gadget *gadget, int is_active)
 				udc_core_disconect(dev);
 		}
 	} else {
-		printk(KERN_DEBUG "usb: %s, udc_enabled : %d, is_active : %d\n",
+		pr_debug("usb: %s, udc_enabled : %d, is_active : %d\n",
 				__func__, dev->udc_enabled, is_active);
 
 	}
@@ -1196,11 +1196,11 @@ static void usb_ready(struct work_struct *work)
 	    container_of(work, struct s3c_udc, usb_ready_work.work);
 
 	if (!dev) {
-		printk(KERN_DEBUG "usb: %s dev is NULL\n", __func__);
+		pr_debug("usb: %s dev is NULL\n", __func__);
 		return ;
 	}
 
-	printk(KERN_DEBUG "usb: %s udc_enable=%d\n",
+	pr_debug("usb: %s udc_enable=%d\n",
 			__func__, dev->udc_enabled);
 
 	dev->is_usb_ready = true;

@@ -718,9 +718,9 @@ int platform_pm_suspend_noirq(struct device *dev)
 
 	if (drv->pm) {
 		if (drv->pm->suspend_noirq) {
-			printk(KERN_DEBUG "%s: %s+\n", __func__, dev_name(dev));
+			pr_debug("%s: %s+\n", __func__, dev_name(dev));
 			ret = drv->pm->suspend_noirq(dev);
-			printk(KERN_DEBUG "%s: %s-\n", __func__, dev_name(dev));
+			pr_debug("%s: %s-\n", __func__, dev_name(dev));
 		}
 	}
 

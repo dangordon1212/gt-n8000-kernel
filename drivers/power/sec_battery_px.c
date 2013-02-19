@@ -370,7 +370,7 @@ static void sec_bat_use_timer_func(struct alarm *alarm)
 	struct battery_data *battery =
 		container_of(alarm, struct battery_data, event_alarm);
 	battery->batt_use &= (~battery->batt_use_wait);
-	pr_info("/BATT/ timer expired (0x%x)\n", battery->batt_use);
+	pr_debug("/BATT/ timer expired (0x%x)\n", battery->batt_use);
 }
 
 static void sec_bat_use_module(struct battery_data *battery,
@@ -380,7 +380,7 @@ static void sec_bat_use_module(struct battery_data *battery,
 
 	/* ignore duplicated deactivation of same event  */
 	if (!enable && (battery->batt_use == battery->batt_use_wait)) {
-		pr_info("/BATT/ ignore duplicated same event\n");
+		pr_debug("/BATT/ ignore duplicated same event\n");
 		return;
 	}
 
@@ -421,7 +421,7 @@ static void sec_bat_use_module(struct battery_data *battery,
 		ts = ktime_to_timespec(battery->cur_time);
 
 		sec_bat_program_alarm(battery, TOTAL_EVENT_TIME);
-		pr_info("/BATT/ start timer (curr 0x%x, wait 0x%x)\n",
+		pr_debug("/BATT/ start timer (curr 0x%x, wait 0x%x)\n",
 			battery->batt_use, battery->batt_use_wait);
 	}
 }
@@ -468,9 +468,9 @@ enum charger_type sec_get_dedicted_charger_type(struct battery_data *battery)
 #if defined(P4_CHARGING_FEATURE_01)
 	accessory_line = gpio_get_value(
 			battery->pdata->charger.accessory_line);
-	pr_info("[BATT] get acc val (%d)\n", accessory_line);
+	pr_debug("[BATT] get acc val (%d)\n", accessory_line);
 	if (!accessory_line && !(lpcharge)) {
-		pr_info("[BATT] count dock_detction(%d)\n", i);
+		pr_debug("[BATT] count dock_detction(%d)\n", i);
 		for (i = 0; i < 8; i++) {
 			msleep(200);
 			if (battery->cable_type ==
@@ -485,7 +485,7 @@ enum charger_type sec_get_dedicted_charger_type(struct battery_data *battery)
 							result = CHARGER_USB;
 					else
 						result = CHARGER_BATTERY;
-					pr_info("%s: m(%d), s(%d), p(%d)\n",
+					pr_debug("%s: m(%d), s(%d), p(%d)\n",
 						__func__, battery->cable_type,
 						battery->cable_sub_type,
 						battery->cable_pwr_type);
@@ -501,7 +501,7 @@ enum charger_type sec_get_dedicted_charger_type(struct battery_data *battery)
 	if ((lpcharge) &&
 		battery->cable_type == POWER_SUPPLY_TYPE_DOCK) {
 		battery->cable_sub_type = ONLINE_SUB_TYPE_DESK;
-		pr_info("[BATT]%s: m(%d), s(%d), p(%d) acc(%d) pwr(%d)\n",
+		pr_debug("[BATT]%s: m(%d), s(%d), p(%d) acc(%d) pwr(%d)\n",
 			__func__, battery->cable_type, battery->cable_sub_type,
 			battery->cable_pwr_type, accessory_line,
 			battery->charging_mode_booting);
@@ -607,13 +607,13 @@ static void sec_TA_work_handler(struct work_struct *work)
 
 		msleep(TA_DISCONNECT_RECHECK_TIME);
 		if (ta_state != check_ta_conn(battery)) {
-			pr_info("%s: unstable ta_state(%d), ignore it.\n",
+			pr_debug("%s: unstable ta_state(%d), ignore it.\n",
 					__func__, ta_state);
 			enable_irq(battery->connect_irq);
 			return;
 		}
 	}
-	pr_info("%s: ta_state(%d)\n", __func__, ta_state);
+	pr_debug("%s: ta_state(%d)\n", __func__, ta_state);
 
 	sec_get_cable_status(battery);
 	sec_cable_changed(battery);
@@ -624,7 +624,7 @@ static void sec_TA_work_handler(struct work_struct *work)
 static irqreturn_t sec_TA_nCHG_interrupt_handler(int irq, void *arg)
 {
 	struct battery_data *battery = (struct battery_data *)arg;
-	pr_info("%s(%d)\n", __func__,
+	pr_debug("%s(%d)\n", __func__,
 		gpio_get_value(battery->pdata->charger.fullcharge_line));
 
 	disable_irq_nosync(irq);
@@ -639,7 +639,7 @@ static irqreturn_t sec_TA_nCHG_interrupt_handler(int irq, void *arg)
 static irqreturn_t sec_TA_nCon_interrupt_handler(int irq, void *arg)
 {
 	struct battery_data *battery = (struct battery_data *)arg;
-	pr_info("%s(%d)\n", __func__,
+	pr_debug("%s(%d)\n", __func__,
 		gpio_get_value(battery->pdata->charger.connect_line));
 
 	disable_irq_nosync(irq);
@@ -864,7 +864,7 @@ static int sec_get_bat_level(struct power_supply *bat_ps)
 	} else {
 		if (battery->info.abstimer_is_active) {
 			battery->info.abstimer_is_active = 0;
-			pr_info("%s: Inactive abs timer.\n", __func__);
+			pr_debug("%s: Inactive abs timer.\n", __func__);
 		}
 	}
 
@@ -1353,7 +1353,7 @@ static int sec_bat_set_property(struct power_supply *ps,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 #if defined(CONFIG_MACH_P4NOTE)
-		pr_info("[BATT] get val (%d)\n", val->intval);
+		pr_debug("[BATT] get val (%d)\n", val->intval);
 		online_val = val->intval;
 		online_val &= ~(ONLINE_TYPE_RSVD_MASK);
 		battery->cable_type = ((online_val &
@@ -1852,10 +1852,10 @@ static ssize_t sec_bat_store(struct device *dev,
 						SIOP_DEACTIVE_CHARGE_CURRENT);
 			ret = count;
 		}
-		pr_info("%s: SIOP_ACTIVATED :%d\n", __func__, x);
+		pr_debug("%s: SIOP_ACTIVATED :%d\n", __func__, x);
 		break;
 	case UPDATE:
-		pr_info("%s: battery update\n", __func__);
+		pr_debug("%s: battery update\n", __func__);
 		wake_lock(&debug_batterydata->work_wake_lock);
 		schedule_work(&debug_batterydata->battery_work);
 		ret = count;
@@ -1959,7 +1959,7 @@ static ssize_t sec_bat_store(struct device *dev,
 					sec_get_cable_status(battery);
 					sec_cable_changed(battery);
 				} else
-					pr_info("%s:Invalid\n", __func__);
+					pr_info("%s: Invalid\n", __func__);
 				ret = count;
 			}
 		}
@@ -2281,21 +2281,21 @@ static void sec_cable_work(struct work_struct *work)
 static int sec_bat_suspend(struct device *dev)
 {
 	struct battery_data *battery = dev_get_drvdata(dev);
-	pr_info("%s start\n", __func__);
+	pr_debug("%s start\n", __func__);
 
 	if (!get_charger_status(battery)) {
 		sec_program_alarm(battery, SLOW_POLL);
 		battery->slow_poll = 1;
 	}
 
-	pr_info("%s end\n", __func__);
+	pr_debug("%s end\n", __func__);
 	return 0;
 }
 
 static void sec_bat_resume(struct device *dev)
 {
 	struct battery_data *battery = dev_get_drvdata(dev);
-	pr_info("%s start\n", __func__);
+	pr_debug("%s start\n", __func__);
 
 	irq_set_irq_type(battery->charging_irq
 		, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING);
@@ -2308,7 +2308,7 @@ static void sec_bat_resume(struct device *dev)
 	wake_lock(&battery->work_wake_lock);
 	schedule_work(&battery->battery_work);
 
-	pr_info("%s end\n", __func__);
+	pr_debug("%s end\n", __func__);
 }
 
 static void sec_cable_changed(struct battery_data *battery)
@@ -2358,7 +2358,7 @@ void sec_cable_charging(struct battery_data *battery)
 		cancel_delayed_work(&battery->full_comp_work);
 		schedule_delayed_work(&battery->full_comp_work, 100);
 
-		pr_info("battery is full charged ");
+		pr_info("battery is fully charged\n");
 	}
 
 	wake_lock(&battery->work_wake_lock);
@@ -2393,7 +2393,7 @@ void fuelgauge_recovery_handler(struct work_struct *work)
 		if (current_soc) {
 			pr_info("%s: Returning to Normal discharge path.\n",
 				__func__);
-			pr_info(" Actual SOC(%d) non-zero.\n", current_soc);
+			pr_info("Actual SOC(%d) non-zero.\n", current_soc);
 			battery->is_low_batt_alarm = false;
 		} else {
 			battery->info.level--;
@@ -2430,7 +2430,7 @@ int _low_battery_alarm_(struct battery_data *battery)
 {
 	int overcurrent_limit_in_soc;
 	int current_soc = get_fuelgauge_value(FG_LEVEL);
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 	if (battery->info.level <= STABLE_LOW_BATTERY_DIFF)
 		overcurrent_limit_in_soc = STABLE_LOW_BATTERY_DIFF_LOWBATT;
@@ -2501,7 +2501,7 @@ static void fullcharging_work_handler(struct work_struct *work)
 		container_of(work, struct battery_data, fullcharging_work.work);
 	int check_charger_state = 1;
 	int fg_soc, fg_vfsoc;
-	pr_info("%s : nCHG intr!!, fullcharge_line=%d",
+	pr_debug("%s : nCHG intr!!, fullcharge_line=%d",
 		__func__,
 		gpio_get_value(battery->pdata->charger.fullcharge_line));
 

@@ -188,7 +188,7 @@ void s3cfb_extdsp_early_suspend(struct early_suspend *h)
 	struct s3cfb_extdsp_global *info = container_of(h, struct s3cfb_extdsp_global, early_suspend);
 	struct s3cfb_extdsp_global *fbdev[2];
 
-	printk("s3cfb_extdsp_early_suspend is called\n");
+	dev_dbg(info->dev, "%s is called\n", __func__);
 
 	info->system_state = POWER_OFF;
 
@@ -203,9 +203,8 @@ void s3cfb_extdsp_late_resume(struct early_suspend *h)
 	struct s3cfb_extdsp_window *win;
 	struct s3cfb_extdsp_global *fbdev[2];
 	int j;
-/*
-	printk("s3cfb_extdsp_late_resume is called\n");
-*/
+
+	dev_dbg(info->dev, "%s is called\n", __func__);
 	dev_dbg(info->dev, "wake up from suspend\n");
 
 	info->system_state = POWER_ON;

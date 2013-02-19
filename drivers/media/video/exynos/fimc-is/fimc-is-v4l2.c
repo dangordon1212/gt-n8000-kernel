@@ -354,8 +354,8 @@ static int fimc_is_load_fw(struct v4l2_subdev *sd)
 	}
 	clear_bit(IS_ST_IDLE, &dev->state);
 	dbg("--- fimc_is_load_fw end\n");
-	printk(KERN_INFO "FIMC-IS FW info = %s\n", dev->fw.fw_info);
-	printk(KERN_INFO "FIMC-IS FW ver = %s\n", dev->fw.fw_version);
+	dbg("FIMC-IS FW info = %s\n", dev->fw.fw_info);
+	dbg("FIMC-IS FW ver = %s\n", dev->fw.fw_version);
 	return ret;
 }
 
@@ -493,7 +493,7 @@ static int fimc_is_init_set(struct v4l2_subdev *sd, u32 val)
 		fimc_is_hw_set_low_poweroff(dev, true);
 		return -EINVAL;
 	}
-	printk(KERN_INFO "FIMC-IS Setfile info = %s\n", dev->fw.setfile_info);
+	dbg("FIMC-IS Setfile info = %s\n", dev->fw.setfile_info);
 	dbg("v4l2 : Load set file end\n");
 	/* Check magic number */
 	if (dev->is_p_region->shared[MAX_SHARED_COUNT-1] != MAGIC_NUMBER)

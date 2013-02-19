@@ -31,7 +31,7 @@ static ssize_t show_usb_sel(struct device *dev,
 		mode = "PDA";
 	}
 
-	pr_info("%s: %s\n", __func__, mode);
+	pr_debug("%s: %s\n", __func__, mode);
 
 	return sprintf(buf, "%s\n", mode);
 }
@@ -40,7 +40,7 @@ static ssize_t store_usb_sel(struct device *dev,
 			     struct device_attribute *attr,
 			     const char *buf, size_t count)
 {
-	pr_info("%s: %s\n", __func__, buf);
+	pr_debug("%s: %s\n", __func__, buf);
 
 	if (!strncasecmp(buf, "PDA", 3)) {
 		usb_switch_lock();
@@ -96,7 +96,7 @@ static ssize_t show_uart_sel(struct device *dev,
 #endif /* (CONFIG_SAMSUNG_ANALOG_UART_SWITCH == 2) */
 	}
 
-	pr_info("%s: %s\n", __func__, mode);
+	pr_debug("%s: %s\n", __func__, mode);
 
 	return sprintf(buf, "%s\n", mode);
 #endif /* CONFIG_MACH_P8LTE */
@@ -115,7 +115,7 @@ static ssize_t store_uart_sel(struct device *dev,
 	int set_val1, set_val2, ret = 0;
 #endif /* CONFIG_MACH_P8LTE */
 
-	pr_info("%s: %s\n", __func__, buf);
+	pr_debug("%s: %s\n", __func__, buf);
 
 #ifdef CONFIG_MACH_P8LTE
 	/* 2 for LTE, 1 for AP, 0 for CP */
@@ -157,11 +157,11 @@ static ssize_t store_uart_sel(struct device *dev,
 
 	/* 1 for AP, 0 for CP */
 	gpio_set_value(GPIO_UART_SEL, uart_sel);
-	pr_info("%s: uart_sel(%d)\n", __func__, uart_sel);
+	pr_debug("%s: uart_sel(%d)\n", __func__, uart_sel);
 #if (CONFIG_SAMSUNG_ANALOG_UART_SWITCH == 2)
 	/* 1 for (AP)DOCK, 0 for (AP)FAC */
 	gpio_set_value(GPIO_UART_SEL2, uart_sel2);
-	pr_info("%s: uart_sel2(%d)\n", __func__, uart_sel2);
+	pr_debug("%s: uart_sel2(%d)\n", __func__, uart_sel2);
 #endif /* (CONFIG_SAMSUNG_ANALOG_UART_SWITCH == 2) */
 #endif /* CONFIG_MACH_P8LTE */
 
@@ -178,7 +178,7 @@ static ssize_t show_usb_state(struct device *dev,
 	else
 		state = "USB_STATE_NOTCONFIGURED";
 
-	pr_info("%s: %s\n", __func__, state);
+	pr_debug("%s: %s\n", __func__, state);
 
 	return sprintf(buf, "%s\n", state);
 }
@@ -200,12 +200,12 @@ static const struct attribute_group px_switch_group = {
 
 void set_usb_connection_state(bool connected)
 {
-	pr_info("%s: set %s\n", __func__, (connected ? "True" : "False"));
+	pr_debug("%s: set %s\n", __func__, (connected ? "True" : "False"));
 
 	if (usb_connected != connected) {
 		usb_connected = connected;
 
-		pr_info("%s: send \"usb_state\" sysfs_notify\n", __func__);
+		pr_debug("%s: send \"usb_state\" sysfs_notify\n", __func__);
 		sysfs_notify(&sec_switch_dev->kobj, NULL, "usb_state");
 	}
 }
@@ -222,14 +222,14 @@ static void pmic_safeout2(int onoff)
 		if (!regulator_is_enabled(regulator)) {
 			regulator_enable(regulator);
 		} else {
-			pr_info("%s: onoff:%d No change in safeout2\n",
+			pr_debug("%s: onoff:%d No change in safeout2\n",
 			       __func__, onoff);
 		}
 	} else {
 		if (regulator_is_enabled(regulator)) {
 			regulator_force_disable(regulator);
 		} else {
-			pr_info("%s: onoff:%d No change in safeout2\n",
+			pr_debug("%s: onoff:%d No change in safeout2\n",
 			       __func__, onoff);
 		}
 	}
@@ -240,14 +240,14 @@ static void pmic_safeout2(int onoff)
 		if (!gpio_get_value(GPIO_USB_SEL_CP)) {
 			gpio_set_value(GPIO_USB_SEL_CP, onoff);
 		} else {
-			pr_info("%s: onoff:%d No change in safeout2\n",
+			pr_debug("%s: onoff:%d No change in safeout2\n",
 			       __func__, onoff);
 		}
 	} else {
 		if (gpio_get_value(GPIO_USB_SEL_CP)) {
 			gpio_set_value(GPIO_USB_SEL_CP, onoff);
 		} else {
-			pr_info("%s: onoff:%d No change in safeout2\n",
+			pr_debug("%s: onoff:%d No change in safeout2\n",
 			       __func__, onoff);
 		}
 	}
@@ -257,15 +257,15 @@ static void pmic_safeout2(int onoff)
 static void usb_apply_path(enum usb_path_t path)
 {
 #if defined(CONFIG_MACH_P4NOTE)
-	pr_info("%s: current gpio before changing : sel0:%d sel1:%d sel_cp:%d\n",
+	pr_debug("%s: current gpio before changing : sel0:%d sel1:%d sel_cp:%d\n",
 	       __func__, gpio_get_value(GPIO_USB_SEL0),
 	       gpio_get_value(GPIO_USB_SEL1), gpio_get_value(GPIO_USB_SEL_CP));
-	pr_info("%s: target path %x\n", __func__, path);
+	pr_debug("%s: target path %x\n", __func__, path);
 #else
-	pr_info("%s: current gpio before changing : sel1:%d sel2:%d sel3:%d\n",
+	pr_debug("%s: current gpio before changing : sel1:%d sel2:%d sel3:%d\n",
 	       __func__, gpio_get_value(GPIO_USB_SEL1),
 	       gpio_get_value(GPIO_USB_SEL2), gpio_get_value(GPIO_USB_SEL3));
-	pr_info("%s: target path %x\n", __func__, path);
+	pr_debug("%s: target path %x\n", __func__, path);
 #endif
 
 	/* following checks are ordered according to priority */
@@ -293,7 +293,7 @@ static void usb_apply_path(enum usb_path_t path)
 #endif /* CONFIG_MACH_P4NOTE */
 
 	if (path & USB_PATH_CP) {
-		pr_info("DEBUG: set USB path to CP\n");
+		pr_debug("DEBUG: set USB path to CP\n");
 #if defined(CONFIG_MACH_P4NOTE)
 		gpio_set_value(GPIO_USB_SEL0, 0);
 		gpio_set_value(GPIO_USB_SEL1, 1);
@@ -346,21 +346,21 @@ static void usb_apply_path(enum usb_path_t path)
 #endif /* CONFIG_MACH_P4NOTE */
 
 out_ap:
-	pr_info("%s: %x safeout2 off\n", __func__, path);
+	pr_debug("%s: %x safeout2 off\n", __func__, path);
 	pmic_safeout2(0);
 	goto sysfs_noti;
 
 out_cp:
-	pr_info("%s: %x safeout2 on\n", __func__, path);
+	pr_debug("%s: %x safeout2 on\n", __func__, path);
 	pmic_safeout2(1);
 	goto sysfs_noti;
 
 out_nochange:
-	pr_info("%s: %x safeout2 no change\n", __func__, path);
+	pr_debug("%s: %x safeout2 no change\n", __func__, path);
 	return;
 
 sysfs_noti:
-	pr_info("%s: send \"usb_sel\" sysfs_notify\n", __func__);
+	pr_debug("%s: send \"usb_sel\" sysfs_notify\n", __func__);
 	sysfs_notify(&sec_switch_dev->kobj, NULL, "usb_sel");
 	return;
 }
@@ -379,14 +379,14 @@ sysfs_noti:
 */
 enum usb_path_t usb_switch_get_path(void)
 {
-	pr_info("%s: current path(%d)\n", __func__, current_path);
+	pr_debug("%s: current path(%d)\n", __func__, current_path);
 
 	return current_path;
 }
 
 void usb_switch_set_path(enum usb_path_t path)
 {
-	pr_info("%s: %x current_path before changing\n",
+	pr_debug("%s: %x current_path before changing\n",
 		__func__, current_path);
 
 	current_path |= path;
@@ -395,7 +395,7 @@ void usb_switch_set_path(enum usb_path_t path)
 
 void usb_switch_clr_path(enum usb_path_t path)
 {
-	pr_info("%s: %x current_path before changing\n",
+	pr_debug("%s: %x current_path before changing\n",
 		__func__, current_path);
 
 	current_path &= ~path;
@@ -443,10 +443,10 @@ static void init_gpio(void)
 #endif /* (CONFIG_SAMSUNG_ANALOG_UART_SWITCH == 2) */
 
 	uart_sel = gpio_get_value(GPIO_UART_SEL);
-	pr_info("%s: uart_sel(%d)\n", __func__, uart_sel);
+	pr_debug("%s: uart_sel(%d)\n", __func__, uart_sel);
 #if (CONFIG_SAMSUNG_ANALOG_UART_SWITCH == 2)
 	uart_sel2 = gpio_get_value(GPIO_UART_SEL2);
-	pr_info("%s: uart_sel2(%d)\n", __func__, uart_sel2);
+	pr_debug("%s: uart_sel2(%d)\n", __func__, uart_sel2);
 #endif /* (CONFIG_SAMSUNG_ANALOG_UART_SWITCH == 2) */
 }
 #endif
@@ -492,7 +492,7 @@ static ssize_t px_switch_store_usb_lock(struct device *dev,
 	if (IS_ERR_OR_NULL(udc))
 		return count;
 
-	pr_info("%s: lock=%d\n", __func__, lock);
+	pr_debug("%s: lock=%d\n", __func__, lock);
 
 	if (lock != is_usb_locked) {
 		is_usb_locked = lock;

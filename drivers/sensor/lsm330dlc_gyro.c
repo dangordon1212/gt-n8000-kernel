@@ -560,7 +560,7 @@ static ssize_t lsm330dlc_gyro_set_enable(struct device *dev,
 		return -EINVAL;
 	}
 
-	printk(KERN_INFO "%s, %d enable : %d.\n", __func__, __LINE__,\
+	pr_debug("%s, %d enable : %d.\n", __func__, __LINE__,\
 		new_enable);
 
 	if (new_enable == data->enable)
@@ -612,7 +612,7 @@ static ssize_t lsm330dlc_gyro_set_enable(struct device *dev,
 	}
 	data->enable = new_enable;
 
-	printk(KERN_INFO "%s, %d lsm330dlc_gyro enable is done.\n",\
+	pr_debug("%s, %d lsm330dlc_gyro enable is done.\n",\
 		__func__, __LINE__);
 
 turn_off:
@@ -683,7 +683,7 @@ static int lsm330dlc_gyro_set_delay_ns(struct lsm330dlc_gyro_data *k3\
 	}
 
 	if (k3->interruptible)
-		pr_info("%s, k3->entries=%d, odr_value=0x%x\n", __func__,
+		pr_debug("%s, k3->entries=%d, odr_value=0x%x\n", __func__,
 			k3->entries, odr_value);
 
 	if (odr_value != (k3->ctrl_regs[0] & ODR_MASK)) {
@@ -701,7 +701,7 @@ static int lsm330dlc_gyro_set_delay_ns(struct lsm330dlc_gyro_data *k3\
 	}
 
 	if (!k3->interruptible) {
-		pr_info("%s, delay_ns=%lld, odr_value=0x%x\n",
+		pr_debug("%s, delay_ns=%lld, odr_value=0x%x\n",
 					__func__, new_delay, odr_value);
 		k3->polling_delay = ns_to_ktime(new_delay);
 		if (k3->enable)
@@ -780,7 +780,7 @@ static ssize_t lsm330dlc_gyro_power_off(struct device *dev,
 	err = i2c_smbus_write_byte_data(data->client,
 					CTRL_REG1, 0x00);
 
-	printk(KERN_INFO "[%s] result of power off = %d\n", __func__, err);
+	pr_debug("[%s] result of power off = %d\n", __func__, err);
 
 	return sprintf(buf, "%d\n", (err < 0 ? 0 : 1));
 }
@@ -797,7 +797,7 @@ static ssize_t lsm330dlc_gyro_power_on(struct device *dev,
 		return 0;
 	}
 
-	printk(KERN_INFO "[%s] result of device init = %d\n", __func__, err);
+	pr_debug("[%s] result of device init = %d\n", __func__, err);
 
 	return sprintf(buf, "%d\n", 1);
 }
@@ -814,7 +814,7 @@ static ssize_t lsm330dlc_gyro_get_temp(struct device *dev,
 		return 0;
 	}
 
-	printk(KERN_INFO "[%s] read temperature : %d\n", __func__, temp);
+	pr_debug("[%s] read temperature : %d\n", __func__, temp);
 
 	return sprintf(buf, "%d\n", temp);
 }
@@ -910,7 +910,7 @@ read_zero_rate_again:
 	}
 
 	/* print out fifo data */
-	printk(KERN_INFO "[gyro_self_test] fifo data\n");
+	pr_debug("[gyro_self_test] fifo data\n");
 	for (i = 0; i < sizeof(raw_data) * (FIFO_TEST_WTM + 1);
 		i += sizeof(raw_data)) {
 		raw[0] = (data->fifo_data[i+1] << 8)
@@ -919,7 +919,7 @@ read_zero_rate_again:
 				| data->fifo_data[i+2];
 		raw[2] = (data->fifo_data[i+5] << 8)
 				| data->fifo_data[i+4];
-		pr_info("%2dth: %8d %8d %8d\n", i/6, raw[0], raw[1], raw[2]);
+		pr_debug("%2dth: %8d %8d %8d\n", i/6, raw[0], raw[1], raw[2]);
 
 		/* for calibration of gyro sensor data */
 		sum_raw[0] += raw[0];
@@ -948,10 +948,10 @@ read_zero_rate_again:
 		zero_rate_delta[0] -= zero_rate_data[0];
 		zero_rate_delta[1] -= zero_rate_data[1];
 		zero_rate_delta[2] -= zero_rate_data[2];
-		pr_info("[gyro_self_test] zero rate second: %8d %8d %8d\n",
+		pr_debug("[gyro_self_test] zero rate second: %8d %8d %8d\n",
 			zero_rate_data[0], zero_rate_data[1],
 			zero_rate_data[2]);
-		pr_info("[gyro_self_test] zero rate delta: %8d %8d %8d\n",
+		pr_debug("[gyro_self_test] zero rate delta: %8d %8d %8d\n",
 			zero_rate_delta[0], zero_rate_delta[1],
 			zero_rate_delta[2]);
 
@@ -962,7 +962,7 @@ read_zero_rate_again:
 			data->cal_data.x = sum_raw[0]/(FIFO_TEST_WTM + 1);
 			data->cal_data.y = sum_raw[1]/(FIFO_TEST_WTM + 1);
 			data->cal_data.z = sum_raw[2]/(FIFO_TEST_WTM + 1);
-			pr_info("%s: cal data (%d,%d,%d)\n", __func__,
+			pr_debug("%s: cal data (%d,%d,%d)\n", __func__,
 				data->cal_data.x, data->cal_data.y,
 				data->cal_data.z);
 
@@ -1002,7 +1002,7 @@ read_zero_rate_again:
 		zero_rate_delta[0] = zero_rate_data[0];
 		zero_rate_delta[1] = zero_rate_data[1];
 		zero_rate_delta[2] = zero_rate_data[2];
-		pr_info("[gyro_self_test] zero rate first: %8d %8d %8d\n",
+		pr_debug("[gyro_self_test] zero rate first: %8d %8d %8d\n",
 			zero_rate_data[0], zero_rate_data[1],
 			zero_rate_data[2]);
 		goto read_zero_rate_again;
@@ -1097,22 +1097,22 @@ static int lsm330dlc_gyro_bypass_self_test\
 		NOST[1] += raw[1];
 		NOST[2] += raw[2];
 
-		printk(KERN_INFO "[gyro_self_test] raw[0] = %d\n", raw[0]);
-		printk(KERN_INFO "[gyro_self_test] raw[1] = %d\n", raw[1]);
-		printk(KERN_INFO "[gyro_self_test] raw[2] = %d\n\n", raw[2]);
+		pr_debug("[gyro_self_test] raw[0] = %d\n", raw[0]);
+		pr_debug("[gyro_self_test] raw[1] = %d\n", raw[1]);
+		pr_debug("[gyro_self_test] raw[2] = %d\n\n", raw[2]);
 	}
 
 	for (i = 0; i < 3; i++)
-		printk(KERN_INFO "[gyro_self_test] "
+		pr_debug("[gyro_self_test] "
 			"SUM of NOST[%d] = %d\n", i, NOST[i]);
 
 	/* calculate average of NOST and covert from ADC to DPS */
 	for (i = 0; i < 3; i++) {
 		NOST[i] = (NOST[i] / 5) * 70 / 1000;
-		printk(KERN_INFO "[gyro_self_test] "
+		pr_debug("[gyro_self_test] "
 			"AVG of NOST[%d] = %d\n", i, NOST[i]);
 	}
-	printk(KERN_INFO "\n");
+	pr_debug("\n");
 
 	/* Enable Self Test */
 	reg[0] = 0xA2;
@@ -1169,20 +1169,20 @@ static int lsm330dlc_gyro_bypass_self_test\
 		ST[1] += raw[1];
 		ST[2] += raw[2];
 
-		printk(KERN_INFO "[gyro_self_test] raw[0] = %d\n", raw[0]);
-		printk(KERN_INFO "[gyro_self_test] raw[1] = %d\n", raw[1]);
-		printk(KERN_INFO "[gyro_self_test] raw[2] = %d\n\n", raw[2]);
+		pr_debug("[gyro_self_test] raw[0] = %d\n", raw[0]);
+		pr_debug("[gyro_self_test] raw[1] = %d\n", raw[1]);
+		pr_debug("[gyro_self_test] raw[2] = %d\n\n", raw[2]);
 	}
 
 	for (i = 0; i < 3; i++)
-		printk(KERN_INFO "[gyro_self_test] "
+		pr_debug("[gyro_self_test] "
 			"SUM of ST[%d] = %d\n", i, ST[i]);
 
 	/* calculate average of ST and convert from ADC to dps */
 	for (i = 0; i < 3; i++)	{
 		/* When FS=2000, 70 mdps/digit */
 		ST[i] = (ST[i] / 5) * 70 / 1000;
-		printk(KERN_INFO "[gyro_self_test] "
+		pr_debug("[gyro_self_test] "
 			"AVG of ST[%d] = %d\n", i, ST[i]);
 	}
 
@@ -1202,7 +1202,7 @@ static int lsm330dlc_gyro_bypass_self_test\
 	else
 		differ_z = NOST[2] - ST[2];
 
-	printk(KERN_INFO "[gyro_self_test] differ x:%d, y:%d, z:%d\n",
+	pr_debug("[gyro_self_test] differ x:%d, y:%d, z:%d\n",
 						differ_x, differ_y, differ_z);
 
 	if ((MIN_ST <= differ_x && differ_x <= MAX_ST)
@@ -1243,39 +1243,39 @@ static ssize_t lsm330dlc_gyro_self_test(struct device *dev,
 	}
 
 	for (i = 0; i < 5; i++)
-		printk(KERN_INFO "[gyro_self_test] "
+		pr_debug("[gyro_self_test] "
 			"backup reg[%d] = %2x\n", i, backup_regs[i]);
 
 	/* fifo self test & gyro calibration */
-	printk(KERN_INFO "\n[gyro_self_test] fifo self-test\n");
+	pr_debug("\n[gyro_self_test] fifo self-test\n");
 
 	fifo_pass = lsm330dlc_gyro_fifo_self_test(data,
 		&cal_pass, zero_rate_data);
 
 	/* fifo self test result */
 	if (fifo_pass == 1)
-		printk(KERN_INFO "[gyro_self_test] fifo self-test success\n");
+		pr_debug("[gyro_self_test] fifo self-test success\n");
 	else if (!fifo_pass)
-		printk(KERN_INFO "[gyro_self_test] fifo self-test fail\n");
+		pr_debug("[gyro_self_test] fifo self-test fail\n");
 	else
-		printk(KERN_INFO "[gyro_self_test] fifo self-test retry\n");
+		pr_debug("[gyro_self_test] fifo self-test retry\n");
 
 	/* calibration result */
 	if (cal_pass == 1)
-		printk(KERN_INFO "[gyro_self_test] calibration success\n");
+		pr_debug("[gyro_self_test] calibration success\n");
 	else if (!cal_pass)
-		printk(KERN_INFO "[gyro_self_test] calibration fail\n");
+		pr_debug("[gyro_self_test] calibration fail\n");
 
 	/* bypass self test */
-	printk(KERN_INFO "\n[gyro_self_test] bypass self-test\n");
+	pr_debug("\n[gyro_self_test] bypass self-test\n");
 
 	bypass_pass = lsm330dlc_gyro_bypass_self_test(data, NOST, ST);
 	if (bypass_pass == 1)
-		printk(KERN_INFO "[gyro_self_test] bypass self-test success\n\n");
+		pr_debug("[gyro_self_test] bypass self-test success\n\n");
 	else if (!bypass_pass)
-		printk(KERN_INFO "[gyro_self_test] bypass self-test fail\n\n");
+		pr_debug("[gyro_self_test] bypass self-test fail\n\n");
 	else
-		printk(KERN_INFO "[gyro_self_test] bypass self-test retry\n\n");
+		pr_debug("[gyro_self_test] bypass self-test retry\n\n");
 
 	/* restore backup register */
 	for (i = 0; i < 10; i++) {
@@ -1299,9 +1299,9 @@ exit:
 	}
 
 	if (fifo_pass == 2 && bypass_pass == 2)
-		printk(KERN_INFO "[gyro_self_test] self-test result : retry\n");
+		pr_debug("[gyro_self_test] self-test result : retry\n");
 	else
-		printk(KERN_INFO "[gyro_self_test] self-test result : %s\n",
+		pr_debug("[gyro_self_test] self-test result : %s\n",
 			fifo_pass & bypass_pass & cal_pass ? "pass" : "fail");
 
 	return sprintf(buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",

@@ -23,7 +23,7 @@
 #ifdef CONFIG_SAMSUNG_MHL
 static void sii9234_cfg_gpio(void)
 {
-	printk(KERN_INFO "%s()\n", __func__);
+	pr_debug("%s()\n", __func__);
 
 	/* AP_MHL_SDA */
 	s3c_gpio_cfgpin(GPIO_MHL_SDA_1_8V, S3C_GPIO_SFN(0x0));
@@ -64,7 +64,7 @@ static void sii9234_cfg_gpio(void)
 
 static void sii9234_power_onoff(bool on)
 {
-	printk(KERN_INFO "%s(%d)\n", __func__, on);
+	pr_debug("%s(%d)\n", __func__, on);
 
 	if (on) {
 		/* To avoid floating state of the HPD pin *
@@ -95,7 +95,7 @@ static void sii9234_power_onoff(bool on)
 #if defined(CONFIG_MFD_MAX77693)
 static int sii9234_usb_op(bool on, int value)
 {
-	pr_info("func:%s bool on(%d) int value(%d)\n", __func__, on, value);
+	pr_debug("func:%s bool on(%d) int value(%d)\n", __func__, on, value);
 	if (on) {
 		if (value == 1)
 			max77693_muic_usb_cb(USB_CABLE_ATTACHED);
@@ -119,7 +119,7 @@ static void sii9234_vbus_present(bool on, int value)
 	struct power_supply *psy = power_supply_get_by_name(PSY_CHG_NAME);
 	union power_supply_propval power_value;
 	u8 intval;
-	pr_info("%s: on(%d), vbus type(%d)\n", __func__, on, value);
+	pr_debug("%s: on(%d), vbus type(%d)\n", __func__, on, value);
 
 	if (!psy) {
 		pr_err("%s: fail to get %s psy\n", __func__, PSY_CHG_NAME);
@@ -129,7 +129,7 @@ static void sii9234_vbus_present(bool on, int value)
 	power_value.intval = ((POWER_SUPPLY_TYPE_MISC << 4) |
 			(on << 2) | (value << 0));
 
-	pr_info("%s: value.intval(0x%x)\n", __func__, power_value.intval);
+	pr_debug("%s: value.intval(0x%x)\n", __func__, power_value.intval);
 	psy->set_property(psy, POWER_SUPPLY_PROP_ONLINE, &power_value);
 
 	return;
@@ -149,7 +149,7 @@ static int sii9234_get_vbus_status(void)
 	}
 
 	psy->get_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);
-	pr_info("%s: value.intval(0x%x)\n", __func__, value.intval);
+	pr_debug("%s: value.intval(0x%x)\n", __func__, value.intval);
 
 	return (int)value.intval;
 }
@@ -162,14 +162,14 @@ static void sii9234_otg_control(bool onoff)
 	gpio_direction_output(GPIO_OTG_EN, onoff);
 	gpio_free(GPIO_OTG_EN);
 
-	printk(KERN_INFO "[MHL] %s: onoff =%d\n", __func__, onoff);
+	pr_debug("[MHL] %s: onoff =%d\n", __func__, onoff);
 
 	return;
 }
 #endif
 static void sii9234_reset(void)
 {
-	printk(KERN_INFO "%s()\n", __func__);
+	pr_debug("%s()\n", __func__);
 
 	s3c_gpio_cfgpin(GPIO_MHL_RST, S3C_GPIO_OUTPUT);
 	s3c_gpio_setpull(GPIO_MHL_RST, S3C_GPIO_PULL_NONE);
@@ -184,16 +184,16 @@ static void sii9234_reset(void)
 #ifndef CONFIG_MACH_P4NOTE
 static void mhl_usb_switch_control(bool on)
 {
-	printk(KERN_INFO "%s() [MHL] USB path change : %s\n",
+	pr_info("%s() [MHL] USB path change : %s\n",
 	       __func__, on ? "MHL" : "USB");
 	if (on == 1) {
 		if (gpio_get_value(GPIO_MHL_SEL))
-			printk(KERN_INFO "[MHL] GPIO_MHL_SEL : already 1\n");
+			pr_debug("[MHL] GPIO_MHL_SEL : already 1\n");
 		else
 			gpio_set_value(GPIO_MHL_SEL, GPIO_LEVEL_HIGH);
 	} else {
 		if (!gpio_get_value(GPIO_MHL_SEL))
-			printk(KERN_INFO "[MHL] GPIO_MHL_SEL : already 0\n");
+			pr_debug("[MHL] GPIO_MHL_SEL : already 0\n");
 		else
 			gpio_set_value(GPIO_MHL_SEL, GPIO_LEVEL_LOW);
 	}

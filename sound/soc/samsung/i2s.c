@@ -322,7 +322,7 @@ static void i2s_txctrl(struct i2s_dai *i2s, int on, int stream)
 	u32 mod = readl(addr + I2SMOD) & ~MOD_MASK;
 
 	if (on) {
-		printk(KERN_DEBUG "%s:Turn on\n", __func__);
+		pr_debug("%s: Turn On\n", __func__);
 
 		con |= CON_ACTIVE;
 		con &= ~CON_TXCH_PAUSE;
@@ -354,8 +354,7 @@ static void i2s_txctrl(struct i2s_dai *i2s, int on, int stream)
 		}
 
 		if (!srp_active(i2s, IS_RUNNING)) {
-			printk(KERN_DEBUG
-				"%s: Turn Off - spr is no active\n", __func__);
+			pr_debug("%s: Turn off - spr is not active\n", __func__);
 			con |=  CON_TXCH_PAUSE;
 
 			if (any_rx_active(i2s))
@@ -363,8 +362,7 @@ static void i2s_txctrl(struct i2s_dai *i2s, int on, int stream)
 			else
 				con &= ~CON_ACTIVE;
 		} else {
-			printk(KERN_DEBUG
-				"%s: Turn Off - spr is active\n", __func__);
+			pr_debug("%s: Turn Off - spr is active\n", __func__);
 		}
 	}
 
