@@ -55,6 +55,10 @@ comma = ,
 
 # Turn on some optimizations
 KBUILD_CFLAGS  += $(call cc-option,-O3)
+KBUILD_CFLAGS  += $(call cc-option,--param l2-cache-size=1024)
+KBUILD_CFLAGS  += $(call cc-option,--param l1-cache-size=32)
+
+ifeq ($(CONFIG_ARM_EXTREME_OPT),y)
 KBUILD_CFLAGS  += $(call cc-option,-ffast-math)
 KBUILD_CFLAGS  += $(call cc-option,-fgraphite-identity)
 KBUILD_CFLAGS  += $(call cc-option,-floop-block)
@@ -62,13 +66,7 @@ KBUILD_CFLAGS  += $(call cc-option,-floop-strip-mine)
 KBUILD_CFLAGS  += $(call cc-option,-fmodulo-sched)
 KBUILD_CFLAGS  += $(call cc-option,-fsched-spec-load-dangerous)
 KBUILD_CFLAGS  += $(call cc-option,-ftree-loop-distribution)
-KBUILD_CFLAGS  += $(call cc-option,--param l2-cache-size=1024)
-KBUILD_CFLAGS  += $(call cc-option,--param l1-cache-size=32)
-
-tune-y         := $(call cc-option,-mcpu=cortex-a9)
-tune-y         += $(call cc-option,-mtune=cortex-a9)
-tune-y         += $(call cc-option,-Wa$(comma)-march=armv7-a)
-tune-y         += $(call cc-option,-Wa$(comma)-mcpu=cortex-a9)
+endif
 
 # This selects which instruction set is used.
 # Note that GCC does not numerically define an architecture version
@@ -107,6 +105,11 @@ tune-$(CONFIG_CPU_XSC3)		:=$(call cc-option,-mtune=xscale,-mtune=strongarm110) -
 tune-$(CONFIG_CPU_FEROCEON)	:=$(call cc-option,-mtune=marvell-f,-mtune=xscale)
 tune-$(CONFIG_CPU_V6)		:=$(call cc-option,-mtune=arm1136j-s,-mtune=strongarm)
 tune-$(CONFIG_CPU_V6K)		:=$(call cc-option,-mtune=arm1136j-s,-mtune=strongarm)
+
+tune-y         := $(call cc-option,-mcpu=cortex-a9)
+tune-y         += $(call cc-option,-mtune=cortex-a9)
+tune-y         += $(call cc-option,-Wa$(comma)-march=armv7-a)
+tune-y         += $(call cc-option,-Wa$(comma)-mcpu=cortex-a9)
 
 ifeq ($(CONFIG_AEABI),y)
 CFLAGS_ABI	:=-mabi=aapcs-linux -mno-thumb-interwork
