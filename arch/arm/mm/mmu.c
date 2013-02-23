@@ -737,6 +737,7 @@ static void * __initdata vmalloc_min = (void *)(VMALLOC_END - SZ_128M);
 static int __init early_vmalloc(char *arg)
 {
 	unsigned long vmalloc_reserve = memparse(arg, NULL);
+	const unsigned long more_vmalloc = 32 * 1024 * 1024;
 
 	if (vmalloc_reserve < SZ_16M) {
 		vmalloc_reserve = SZ_16M;
@@ -744,6 +745,14 @@ static int __init early_vmalloc(char *arg)
 			"vmalloc area too small, limiting to %luMB\n",
 			vmalloc_reserve >> 20);
 	}
+
+	/* can't change bootloader but always out of VMalloc space, so fix it here */
+	/* hack hack hack ... */
+	if (more_vmalloc) {
+		printk(KERN_INFO "%s: cmdline req %luMB vmalloc, adding %luMB more\n",
+			__func__, vmalloc_reserve >> 20, more_vmalloc >> 20);
+		vmalloc_reserve += more_vmalloc;
+	};
 
 	if (vmalloc_reserve > VMALLOC_END - (PAGE_OFFSET + SZ_32M)) {
 		vmalloc_reserve = VMALLOC_END - (PAGE_OFFSET + SZ_32M);
