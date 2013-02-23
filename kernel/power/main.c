@@ -524,8 +524,12 @@ static ssize_t cpufreq_min_limit_store(struct kobject *kobj,
 			cpufreq_min_limit_val = val;
 		if ((cpufreq_max_limit_val != -1) &&
 			    (cpufreq_min_limit_val > cpufreq_max_limit_val))
-				printk(KERN_ERR "%s: Min lock may not work well"
-					" because of Max lock\n", __func__);
+				if (printk_ratelimit())
+					printk(KERN_DEBUG "%s: Min lock %dHz may not work well"
+						" because of Max lock %dHz\n",
+						__func__,
+						cpufreq_min_limit_val,
+						cpufreq_max_limit_val);
 		} else /* Invalid lock request --> No action */
 			printk(KERN_ERR "%s: Lock request is invalid\n",
 				__func__);
