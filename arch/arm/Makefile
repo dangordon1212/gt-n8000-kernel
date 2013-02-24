@@ -57,16 +57,11 @@ comma = ,
 KBUILD_CFLAGS  += $(call cc-option,-O3)
 KBUILD_CFLAGS  += $(call cc-option,--param l2-cache-size=1024)
 KBUILD_CFLAGS  += $(call cc-option,--param l1-cache-size=32)
-
-ifeq ($(CONFIG_ARM_EXTREME_OPT),y)
-KBUILD_CFLAGS  += $(call cc-option,-ffast-math)
 KBUILD_CFLAGS  += $(call cc-option,-fgraphite-identity)
 KBUILD_CFLAGS  += $(call cc-option,-floop-block)
 KBUILD_CFLAGS  += $(call cc-option,-floop-strip-mine)
 KBUILD_CFLAGS  += $(call cc-option,-fmodulo-sched)
-KBUILD_CFLAGS  += $(call cc-option,-fsched-spec-load-dangerous)
 KBUILD_CFLAGS  += $(call cc-option,-ftree-loop-distribution)
-endif
 
 # This selects which instruction set is used.
 # Note that GCC does not numerically define an architecture version
