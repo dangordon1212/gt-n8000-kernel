@@ -100,8 +100,6 @@ ifneq ($(CONFIG_BCM4334),)
   DHDCFLAGS += -DCUSTOM_GLOM_SETTING=5 -DENABLE_BCN_LI_BCN_WAKEUP
   DHDCFLAGS += -DROAM_AP_ENV_DETECTION
   DHDCFLAGS += -DWES_SUPPORT
-  # prevent module load errors with newer compilers
-  DHDCFLAGS += -fno-pic
 endif
 
 ifneq ($(CONFIG_BCM4330),)
@@ -202,7 +200,7 @@ DHDCFLAGS += -DWLAN_REGION_CODE=$(REGION_CODE)
 # Others
 #########
 
-EXTRA_LDFLAGS += --strip-debug
+#EXTRA_LDFLAGS += --strip-debug
 
 EXTRA_CFLAGS += $(DHDCFLAGS) -DDHD_DEBUG
 EXTRA_CFLAGS += -DSRCBASE=\"$(src)\"
