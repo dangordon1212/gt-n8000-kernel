@@ -49,6 +49,8 @@ pmd_t *top_pmd;
 #define CPOLICY_WRITEBACK	3
 #define CPOLICY_WRITEALLOC	4
 
+#define VMALLOC_FORCE_SIZE_VAL (CONFIG_VMALLOC_FORCE_SIZE)
+
 static unsigned int cachepolicy __initdata = CPOLICY_WRITEBACK;
 static unsigned int ecc_mask __initdata = 0;
 pgprot_t pgprot_user;
@@ -737,6 +739,15 @@ static void * __initdata vmalloc_min = (void *)(VMALLOC_END - SZ_128M);
 static int __init early_vmalloc(char *arg)
 {
 	unsigned long vmalloc_reserve = memparse(arg, NULL);
+	unsigned long vmalloc_force = VMALLOC_FORCE_SIZE_VAL;
+
+	if (vmalloc_force) {
+		/* can't change bootloader but always out of VMalloc space, so fix it here */
+		printk(KERN_INFO "cmdline/ATAGS req %luMB vmalloc, "
+			"but forcing to %luMB via config option\n",
+			vmalloc_reserve >> 20, vmalloc_force);
+		vmalloc_reserve = vmalloc_force << 20;
+	}
 
 	if (vmalloc_reserve < SZ_16M) {
 		vmalloc_reserve = SZ_16M;

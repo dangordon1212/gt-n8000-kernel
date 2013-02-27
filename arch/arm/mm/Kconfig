@@ -899,3 +899,14 @@ config ARCH_HAS_BARRIERS
 	help
 	  This option allows the use of custom mandatory barriers
 	  included via the mach/barriers.h file.
+
+config VMALLOC_FORCE_SIZE
+	int "Override ATAG VMALLOC value (MB)"
+	default 176 if MACH_P4NOTE
+	default 0
+	help
+	  As ATAGS have precedence over command-line kernel options, on devices
+	  where the bootloader can't be modified use this value (in MB) to override
+	  the "vmalloc=" value.
+	  Necessary on Galaxy Note 10.1 (et al.?) as Samsung default val is too
+	  small (yielding alloc errors in Android VM)
