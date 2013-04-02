@@ -639,7 +639,9 @@ static void dpm_drv_timeout(unsigned long data)
 	printk(KERN_EMERG "dpm suspend stack:\n");
 	show_stack(tsk, NULL);
 
-	BUG();
+	/* this tends to happen when the BT/WAN gets wedged up */
+	/* for now, don't panic, just warn */
+	WARN_ON(1);
 }
 
 /**
