@@ -227,6 +227,7 @@ static void parse_hid_report_descriptor(struct gtco *device, char * report,
 	int   indent = 0;
 	char  indentstr[10] = "";
 
+	memset(oldval, 0, sizeof(oldval));
 
 	dbg("======>>>>>>PARSE<<<<<<======");
 
