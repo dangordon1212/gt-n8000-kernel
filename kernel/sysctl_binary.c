@@ -819,6 +819,7 @@ static const struct bin_table bin_fs_table[] = {
 	{ CTL_DIR,	FS_INOTIFY,		"inotify",	bin_inotify_table },
 	{ CTL_DIR,	FS_OCFS2,		"ocfs2",	bin_fs_ocfs2_table },
 	{ CTL_INT,	KERN_SETUID_DUMPABLE,	"suid_dumpable" },
+	{ CTL_INT,	FS_FSYNC_DISABLED,	"fsync_disabled" },
 	{}
 };
 

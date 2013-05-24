@@ -821,6 +821,7 @@ enum
 	FS_AIO_MAX_NR=19,	/* system-wide maximum number of aio requests */
 	FS_INOTIFY=20,	/* inotify submenu */
 	FS_OCFS2=988,	/* ocfs2 */
+	FS_FSYNC_DISABLED=9999, /* disable fsync() and friends? */
 };
 
 /* /proc/sys/fs/quota/ */

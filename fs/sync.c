@@ -18,8 +18,18 @@
 #include <linux/backing-dev.h>
 #include "internal.h"
 
-bool fsync_enabled = true;
-module_param(fsync_enabled, bool, 0755);
+int fsync_disabled;
+#ifdef CONFIG_SYSCTL
+#include <linux/sysctl.h>
+#else
+module_param(fsync_disabled, int, 0644);
+#endif
+
+int datasyncs_attempted, datasyncs_allowed, fsyncs_attempted, fsyncs_allowed;
+module_param(datasyncs_attempted, int, 0444);
+module_param(datasyncs_allowed, int, 0444);
+module_param(fsyncs_attempted, int, 0444);
+module_param(fsyncs_allowed, int, 0444);
 
 #define VALID_FLAGS (SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE| \
 			SYNC_FILE_RANGE_WAIT_AFTER)
@@ -142,8 +152,10 @@ SYSCALL_DEFINE1(syncfs, int, fd)
 	int ret;
 	int fput_needed;
 
-	if (!fsync_enabled)
+	fsyncs_attempted++;
+	if (fsync_disabled)
 		return 0;
+	fsyncs_allowed++;
 
 	file = fget_light(fd, &fput_needed);
 	if (!file)
@@ -179,8 +191,14 @@ int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 		goto out;
 	}
 
-	if (!fsync_enabled)
-		return 0;
+	if (fsync_disabled)
+		if (!datasync || (fsync_disabled != 2))
+			return 0;
+
+	if (datasync)
+		datasyncs_allowed++;
+	else
+		fsyncs_allowed++;
 
 	ret = filemap_write_and_wait_range(mapping, start, end);
 
@@ -209,9 +227,6 @@ EXPORT_SYMBOL(vfs_fsync_range);
  */
 int vfs_fsync(struct file *file, int datasync)
 {
-	if (!fsync_enabled)
-		return 0;
-
 	return vfs_fsync_range(file, 0, LLONG_MAX, datasync);
 }
 EXPORT_SYMBOL(vfs_fsync);
@@ -222,8 +237,14 @@ static int do_fsync(unsigned int fd, int datasync)
 	int ret = -EBADF;
 	int fput_needed;
 
-	if (!fsync_enabled)
-		return 0;
+	if (datasync)
+		datasyncs_attempted++;
+	else
+		fsyncs_attempted++;
+
+	if (fsync_disabled)
+		if (!datasync || (fsync_disabled != 2))
+			return 0;
 
 	file = fget_light(fd, &fput_needed);
 	if (file) {
@@ -240,9 +261,6 @@ SYSCALL_DEFINE1(fsync, unsigned int, fd)
 
 SYSCALL_DEFINE1(fdatasync, unsigned int, fd)
 {
-	if (!fsync_enabled)
-		return 0;
-
 	return do_fsync(fd, 1);
 }
 
@@ -256,11 +274,14 @@ SYSCALL_DEFINE1(fdatasync, unsigned int, fd)
  */
 int generic_write_sync(struct file *file, loff_t pos, loff_t count)
 {
-	if (!fsync_enabled)
+	fsyncs_attempted++;
+	if (fsync_disabled)
 		return 0;
 
 	if (!(file->f_flags & O_DSYNC) && !IS_SYNC(file->f_mapping->host))
 		return 0;
+	if (!(file->f_flags & __O_SYNC))
+		datasyncs_attempted++;
 	return vfs_fsync_range(file, pos, pos + count - 1,
 			       (file->f_flags & __O_SYNC) ? 0 : 1);
 }
@@ -323,8 +344,10 @@ SYSCALL_DEFINE(sync_file_range)(int fd, loff_t offset, loff_t nbytes,
 	int fput_needed;
 	umode_t i_mode;
 
-	if (!fsync_enabled)
+	fsyncs_attempted++;
+	if (fsync_disabled)
 		return 0;
+	fsyncs_allowed++;
 
 	ret = -EINVAL;
 	if (flags & ~VALID_FLAGS)
