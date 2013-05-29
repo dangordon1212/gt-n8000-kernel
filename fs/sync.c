@@ -18,7 +18,8 @@
 #include <linux/backing-dev.h>
 #include "internal.h"
 
-int fsync_disabled;
+/* been shown to be safe enough, esp with dynamic EARLY_SUSPEND patch */
+int fsync_disabled = 1;
 #ifdef CONFIG_SYSCTL
 #include <linux/sysctl.h>
 #else
