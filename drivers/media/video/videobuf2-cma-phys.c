@@ -375,7 +375,7 @@ static void vb2_cma_phys_unmap_dmabuf(void *mem_priv)
 	buf->size = 0;
 }
 
-#ifdef CONFIG_DMA_SHARED_BUFFER
+#if defined(CONFIG_DMA_SHARED_BUFFER) && !defined(CONFIG_MACH_P4NOTE)
 static int vb2_cma_phys_export_dmabuf(void *alloc_ctx, void *buf_priv,
 					int *export_fd)
 {

@@ -1092,8 +1092,10 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		data.handle = ion_alloc(client, data.len, data.align,
 					     data.flags & 0xFFFF, data.flags & 0xFFFF0000);
+
 		if (IS_ERR(data.handle))
 			return PTR_ERR(data.handle);
+
 		if (copy_to_user((void __user *)arg, &data, sizeof(data))) {
 			ion_free(client, data.handle);
 			return -EFAULT;

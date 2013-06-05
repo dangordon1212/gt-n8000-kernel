@@ -102,12 +102,12 @@ int ump_ion_import_wrapper(u32 __user * argument, struct ump_session_data  * ses
 	unsigned long num_blocks;
 	struct ion_handle *ion_hnd;
 	struct scatterlist *sg;
-	struct scatterlist *sg_ion;
+	struct sg_table *sg_ion;
 	unsigned long i = 0;
 
 	ump_session_memory_list_element * session_memory_element = NULL;
 	if (ion_client_ump==NULL)
-	    ion_client_ump = ion_client_create(ion_exynos, -1, "ump");
+	    ion_client_ump = ion_client_create(ion_exynos, "ump");
 
 	/* Sanity check input parameters */
 	if (NULL == argument || NULL == session_data)
@@ -126,8 +126,8 @@ int ump_ion_import_wrapper(u32 __user * argument, struct ump_session_data  * ses
 	user_interaction.ctx = (void *) session_data;
 
 	/* translate fd to secure ID*/
-	ion_hnd = ion_import_fd(ion_client_ump, user_interaction.ion_fd);
-	sg_ion = ion_map_dma(ion_client_ump,ion_hnd);
+	ion_hnd = ion_import_dma_buf(ion_client_ump, user_interaction.ion_fd);
+	sg_ion = (struct sg_table*) ion_map_kernel(ion_client_ump, ion_hnd);
 
 	blocks = (ump_dd_physical_block*)_mali_osk_malloc(sizeof(ump_dd_physical_block)*1024);
 
@@ -136,18 +136,17 @@ int ump_ion_import_wrapper(u32 __user * argument, struct ump_session_data  * ses
 		return -ENOMEM;
 	}
 
-	sg = sg_ion;
-	do {
+	for_each_sg(sg_ion->sgl, sg, sg_ion->nents, i) {
+		if (!sg)
+			break;
 		blocks[i].addr = sg_phys(sg);
 		blocks[i].size = sg_dma_len(sg);
-		i++;
-		if (i>=1024) {
+		if (i>=1023) {
 			_mali_osk_free(blocks);
 			MSG_ERR(("ion_import fail() in ump_ioctl_allocate()\n"));
 			return -EFAULT;
 		}
-		sg = sg_next(sg);
-	} while(sg);
+	};
 
 	num_blocks = i;
 
@@ -174,7 +173,7 @@ int ump_ion_import_wrapper(u32 __user * argument, struct ump_session_data  * ses
 	_mali_osk_lock_wait(session_data->lock, _MALI_OSK_LOCKMODE_RW);
 	_mali_osk_list_add(&(session_memory_element->list), &(session_data->list_head_session_memory_list));
 	_mali_osk_lock_signal(session_data->lock, _MALI_OSK_LOCKMODE_RW);
-	ion_unmap_dma(ion_client_ump,ion_hnd);
+	ion_unmap_kernel(ion_client_ump,ion_hnd);
 	ion_free(ion_client_ump, ion_hnd);
 
 	_mali_osk_free(blocks);
@@ -293,7 +292,7 @@ int ump_dmabuf_import_wrapper(u32 __user *argument,
 	if (NULL == blocks) {
 		MSG_ERR(("Failed to allocate blocks\n"));
 		ret = -ENOMEM;
-		goto err_dmu_buf_unmap
+		goto err_dmu_buf_unmap;
 	}
 
 	sgl = sgt->sgl;

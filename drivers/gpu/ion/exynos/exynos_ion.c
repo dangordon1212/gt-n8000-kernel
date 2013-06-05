@@ -238,7 +238,7 @@ static int ion_exynos_heap_allocate(struct ion_heap *heap,
 		kfree(cur_bufs);
 	}
 
-	buffer->priv_virt = sgtable;
+	buffer->sg_table = sgtable;
 	buffer->flags = flags;
 
 	return 0;
@@ -269,7 +269,7 @@ static void ion_exynos_heap_free(struct ion_buffer *buffer)
 {
 	struct scatterlist *sg;
 	int i;
-	struct sg_table *sgtable = buffer->priv_virt;
+	struct sg_table *sgtable = buffer->sg_table;
 
 	for_each_sg(sgtable->sgl, sg, sgtable->orig_nents, i)
 		__free_pages(sg_page(sg), __ffs(sg_dma_len(sg)) - PAGE_SHIFT);
@@ -278,15 +278,18 @@ static void ion_exynos_heap_free(struct ion_buffer *buffer)
 	kfree(sgtable);
 }
 
-static struct scatterlist *ion_exynos_heap_map_dma(struct ion_heap *heap,
+static struct sg_table *ion_exynos_heap_map_dma(struct ion_heap *heap,
 					    struct ion_buffer *buffer)
 {
-	return ((struct sg_table *)buffer->priv_virt)->sgl;
+	return (buffer->sg_table);
 }
 
 static void ion_exynos_heap_unmap_dma(struct ion_heap *heap,
 			       struct ion_buffer *buffer)
 {
+	if (buffer && buffer->sg_table)
+		sg_free_table(buffer->sg_table);
+	kfree(buffer->sg_table);
 }
 
 static void *ion_exynos_heap_map_kernel(struct ion_heap *heap,
@@ -298,7 +301,7 @@ static void *ion_exynos_heap_map_kernel(struct ion_heap *heap,
 	int num_pages, i;
 	void *vaddr;
 
-	sgt = buffer->priv_virt;
+	sgt = buffer->sg_table;
 	num_pages = PAGE_ALIGN(offset_in_page(sg_phys(sgt->sgl)) + buffer->size)
 								>> PAGE_SHIFT;
 
@@ -327,7 +330,7 @@ static void *ion_exynos_heap_map_kernel(struct ion_heap *heap,
 static void ion_exynos_heap_unmap_kernel(struct ion_heap *heap,
 				  struct ion_buffer *buffer)
 {
-	struct sg_table *sgt = buffer->priv_virt;
+	struct sg_table *sgt = buffer->sg_table;
 
 	vunmap(buffer->vaddr - offset_in_page(sg_phys(sgt->sgl)));
 }
@@ -335,7 +338,7 @@ static void ion_exynos_heap_unmap_kernel(struct ion_heap *heap,
 static int ion_exynos_heap_map_user(struct ion_heap *heap,
 			struct ion_buffer *buffer, struct vm_area_struct *vma)
 {
-	struct sg_table *sgt = buffer->priv_virt;
+	struct sg_table *sgt = buffer->sg_table;
 	struct scatterlist *sgl;
 	unsigned long pgoff;
 	int i;
@@ -520,23 +523,30 @@ static int ion_exynos_contig_heap_phys(struct ion_heap *heap,
 	return 0;
 }
 
-static struct scatterlist *ion_exynos_contig_heap_map_dma(struct ion_heap *heap,
+static struct sg_table *ion_exynos_contig_heap_map_dma(struct ion_heap *heap,
 						   struct ion_buffer *buffer)
 {
-	struct scatterlist *sglist;
+	struct sg_table *sg_table;
+	int ret;
 
-	sglist = vmalloc(sizeof(struct scatterlist));
-	if (!sglist)
+	sg_table = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
+	if (!sg_table)
 		return ERR_PTR(-ENOMEM);
-	sg_init_table(sglist, 1);
-	sg_set_page(sglist, phys_to_page(buffer->priv_phys), buffer->size, 0);
-	return sglist;
+	ret = sg_alloc_table(sg_table, 1, GFP_KERNEL);
+	if (ret) {
+		kfree(sg_table);
+		return ERR_PTR(ret);
+	};
+
+	sg_set_page(sg_table->sgl, phys_to_page(buffer->priv_phys), buffer->size, 0);
+	return sg_table;
 }
 
 static void ion_exynos_contig_heap_unmap_dma(struct ion_heap *heap,
 			       struct ion_buffer *buffer)
 {
-	vfree(buffer->sglist);
+	if (buffer && buffer->sg_table)
+		kfree(buffer->sg_table);
 }
 
 static int ion_exynos_contig_heap_map_user(struct ion_heap *heap,
@@ -557,7 +567,7 @@ static int ion_exynos_contig_heap_map_user(struct ion_heap *heap,
 static void *ion_exynos_contig_heap_map_kernel(struct ion_heap *heap,
 				 struct ion_buffer *buffer)
 {
-	return phys_to_virt(buffer->priv_phys);
+	return buffer->sg_table;
 }
 
 static void ion_exynos_contig_heap_unmap_kernel(struct ion_heap *heap,
@@ -595,7 +605,6 @@ static void ion_exynos_contig_heap_destroy(struct ion_heap *heap)
 }
 
 struct exynos_user_heap_data {
-	struct sg_table sgt;
 	bool is_pfnmap; /* The region has VM_PFNMAP property */
 };
 
@@ -734,7 +743,7 @@ static int ion_exynos_user_heap_allocate(struct ion_heap *heap,
 	if (ret < 0) {
 		kfree(pages);
 
-		ret = pfnmap_digger(&privdata->sgt, start, nr_pages);
+		ret = pfnmap_digger(buffer->sg_table, start, nr_pages);
 		if (ret)
 			goto err_pfnmap;
 
@@ -749,11 +758,11 @@ static int ion_exynos_user_heap_allocate(struct ion_heap *heap,
 		goto err_alloc_sg;
 	}
 
-	ret = sg_alloc_table(&privdata->sgt, nr_pages, GFP_KERNEL);
+	ret = sg_alloc_table(buffer->sg_table, nr_pages, GFP_KERNEL);
 	if (ret)
 		goto err_alloc_sg;
 
-	sgl = privdata->sgt.sgl;
+	sgl = buffer->sg_table->sgl;
 
 	sg_set_page(sgl, pages[0],
 			(nr_pages == 1) ? len : PAGE_SIZE - start_off,
@@ -793,19 +802,19 @@ static void ion_exynos_user_heap_free(struct ion_buffer *buffer)
 
 	if (!privdata->is_pfnmap) {
 		if (buffer->flags & ION_EXYNOS_WRITE_MASK) {
-			for_each_sg(privdata->sgt.sgl, sg,
-						privdata->sgt.orig_nents, i) {
+			for_each_sg(buffer->sg_table->sgl, sg,
+						buffer->sg_table->orig_nents, i) {
 				set_page_dirty_lock(sg_page(sg));
 				put_page(sg_page(sg));
 			}
 		} else {
-			for_each_sg(privdata->sgt.sgl, sg,
-						privdata->sgt.orig_nents, i)
+			for_each_sg(buffer->sg_table->sgl, sg,
+						buffer->sg_table->orig_nents, i)
 				put_page(sg_page(sg));
 		}
 	}
 
-	sg_free_table(&privdata->sgt);
+	sg_free_table(buffer->sg_table);
 	kfree(privdata);
 }
 
@@ -859,11 +868,6 @@ static bool need_cache_invalidate(long dir)
 							DMA_TO_DEVICE);
 }
 
-static void flush_local_cache_all(void *p)
-{
-	flush_cache_all();
-}
-
 static long ion_exynos_heap_msync(struct ion_client *client,
 		struct ion_handle *handle, off_t offset, size_t size, long dir)
 {
@@ -872,21 +876,26 @@ static long ion_exynos_heap_msync(struct ion_client *client,
 	enum dma_data_direction dmadir;
 #endif
 	struct scatterlist *sg, *tsg;
+	struct sg_table *ion_sg_table;
 	int nents = 0;
 	int ret = 0;
+	int i;
 
-	buffer = ion_share(client, handle);
+	buffer = ion_handle_buffer(handle);
+	// FIXME below?
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
 	if ((offset + size) > buffer->size)
 		return -EINVAL;
 
-	sg = ion_map_dma(client, handle);
-	if (IS_ERR(sg))
-		return PTR_ERR(sg);
+	ion_sg_table = (struct sg_table*) ion_map_kernel(client, handle);
+	if (IS_ERR(ion_sg_table))
+		return PTR_ERR(ion_sg_table);
 
-	while (sg && (offset >= sg_dma_len(sg))) {
+	for_each_sg(ion_sg_table->sgl, sg, ion_sg_table->nents, i) {
+		if (!sg || !(offset >= sg_dma_len(sg)))
+			break;
 		offset -= sg_dma_len(sg);
 		sg = sg_next(sg);
 	}
@@ -961,7 +970,7 @@ static long ion_exynos_heap_msync(struct ion_client *client,
 
 done:
 err_buf_sync:
-	ion_unmap_dma(client, handle);
+	ion_unmap_kernel(client, handle);
 	return ret;
 }
 
@@ -1000,7 +1009,7 @@ static long exynos_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		if ((data.offset + data.size) < data.offset)
 			return -EINVAL;
 
-		handle = ion_import_fd(client, data.fd_buffer);
+		handle = ion_import_dma_buf(client, data.fd_buffer);
 		if (IS_ERR(handle))
 			return PTR_ERR(handle);
 
@@ -1019,7 +1028,7 @@ static long exynos_heap_ioctl(struct ion_client *client, unsigned int cmd,
 			return -EFAULT;
 		}
 
-		handle = ion_import_fd(client, data.fd_buffer);
+		handle = ion_import_dma_buf(client, data.fd_buffer);
 
 		if (IS_ERR(handle))
 			return PTR_ERR(handle);

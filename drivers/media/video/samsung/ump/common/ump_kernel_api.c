@@ -195,6 +195,7 @@ UMP_KERNEL_API_EXPORT void ump_dd_reference_release(ump_dd_handle memh)
 
 		_mali_osk_lock_signal(device.secure_id_map_lock, _MALI_OSK_LOCKMODE_RW);
 
+#ifndef CONFIG_MACH_P4NOTE
 #ifdef CONFIG_DMA_SHARED_BUFFER
 		/*
 		 * when ump descriptor imported to dmabuf is released,
@@ -217,6 +218,7 @@ UMP_KERNEL_API_EXPORT void ump_dd_reference_release(ump_dd_handle memh)
 			dma_buf_detach(attach->dmabuf, attach);
 
 		}
+#endif
 #endif
 		mem->release_func(mem->ctx, mem);
 

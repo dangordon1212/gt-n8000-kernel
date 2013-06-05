@@ -353,8 +353,12 @@ static int ump_file_ioctl(struct inode *inode, struct file *filp, unsigned int c
 #endif
 #ifdef CONFIG_DMA_SHARED_BUFFER
 		case UMP_IOC_DMABUF_IMPORT:
+			printk(KERN_INFO "%s: UMP_IOC_DMABUF_IMPORT\n", __func__);
+			return -ENOTTY;
+			/*
 			err = ump_dmabuf_import_wrapper((u32 __user *)argument,
 							session_data);
+			*/
 			break;
 #endif
 		case UMP_IOC_RELEASE:
