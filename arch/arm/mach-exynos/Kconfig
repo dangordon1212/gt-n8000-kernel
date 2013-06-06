@@ -51,6 +51,7 @@ config CPU_EXYNOS4412
 	bool
 	select S3C_PL330_DMA
 	select ARM_ERRATA_761320
+	select ARM_HAS_SG_CHAIN
 	help
 	  Enable EXYNOS4412 CPU support
 
