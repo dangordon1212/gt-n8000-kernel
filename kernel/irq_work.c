@@ -9,6 +9,8 @@
 #include <linux/export.h>
 #include <linux/irq_work.h>
 #include <linux/hardirq.h>
+#include <linux/percpu.h>
+#include <asm/processor.h>
 
 /*
  * An entry can be in one of four states:
