@@ -57,7 +57,7 @@ static int ecryptfs_threadfn(void *ignored)
 		wait_event_freezable(
 			ecryptfs_kthread_ctl.wait,
 			(!list_empty(&ecryptfs_kthread_ctl.req_list)
-			 || kthread_should_stop()));
+			 || kthread_freezable_should_stop(NULL)));
 		mutex_lock(&ecryptfs_kthread_ctl.mux);
 		if (ecryptfs_kthread_ctl.flags & ECRYPTFS_KTHREAD_ZOMBIE) {
 			mutex_unlock(&ecryptfs_kthread_ctl.mux);
