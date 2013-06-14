@@ -158,7 +158,7 @@ void wacom_i2c_pendct_work(struct work_struct *work)
 	struct wacom_i2c *wac_i2c =
 	    container_of(work, struct wacom_i2c, pendct_dwork.work);
 
-	printk(KERN_DEBUG "[E-PEN] %s , %d\n",
+	pr_debug("[E-PEN] %s , %d\n",
 	       __func__, gpio_get_value(wac_i2c->wac_pdata->gpio_pendct));
 
 	if (gpio_get_value(wac_i2c->wac_pdata->gpio_pendct))
@@ -951,7 +951,7 @@ int wacom_i2c_coord(struct wacom_i2c *wac_i2c)
 				       "[E-PEN] is pressed(%d,%d,%d)(%d)\n",
 				       x, y, pressure, wac_i2c->tool);
 #else
-				printk(KERN_DEBUG "[E-PEN] pressed\n");
+				pr_debug("[E-PEN] pressed\n");
 #endif
 
 			} else if (!prox && wac_i2c->pen_pressed) {
@@ -963,16 +963,16 @@ int wacom_i2c_coord(struct wacom_i2c *wac_i2c)
 				       "[E-PEN] is released(%d,%d,%d)(%d)\n",
 				       x, y, pressure, wac_i2c->tool);
 #else
-				printk(KERN_DEBUG "[E-PEN] released\n");
+				pr_debug("[E-PEN] released\n");
 #endif
 			}
 
 			wac_i2c->pen_pressed = prox;
 
 			if (stylus && !wac_i2c->side_pressed)
-				printk(KERN_DEBUG "[E-PEN] side on\n");
+				pr_debug("[E-PEN] side on\n");
 			else if (!stylus && wac_i2c->side_pressed)
-				printk(KERN_DEBUG "[E-PEN] side off\n");
+				pr_debug("[E-PEN] side off\n");
 
 			wac_i2c->side_pressed = stylus;
 		}
@@ -1035,7 +1035,7 @@ int wacom_i2c_coord(struct wacom_i2c *wac_i2c)
 #endif
 			input_sync(wac_i2c->input_dev);
 
-			printk(KERN_DEBUG "[E-PEN] is out");
+			pr_debug("[E-PEN] is out");
 		}
 		wac_i2c->pen_prox = 0;
 		wac_i2c->pen_pressed = 0;

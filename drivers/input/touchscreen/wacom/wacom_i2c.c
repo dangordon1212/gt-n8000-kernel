@@ -381,7 +381,7 @@ static irqreturn_t wacom_interrupt_pdct(int irq, void *dev_id)
 
 	wac_i2c->pen_pdct = gpio_get_value(wac_i2c->wac_pdata->gpio_pendct);
 
-	printk(KERN_DEBUG "[E-PEN] pdct %d(%d)\n",
+	pr_debug("[E-PEN] pdct %d(%d)\n",
 		wac_i2c->pen_pdct, wac_i2c->pen_prox);
 
 	if (wac_i2c->pen_pdct == PDCT_NOSIGNAL) {
@@ -450,7 +450,7 @@ static void pen_insert_work(struct work_struct *work)
 #endif
 
 
-	printk(KERN_DEBUG "[E-PEN] %s : %d\n",
+	pr_debug("[E-PEN] %s : %d\n",
 		__func__, wac_i2c->pen_insert);
 
 	input_report_switch(wac_i2c->input_dev,
@@ -544,7 +544,7 @@ static void wacom_i2c_set_input_values(struct i2c_client *client,
 static int wacom_check_emr_prox(struct wacom_g5_callbacks *cb)
 {
 	struct wacom_i2c *wac = container_of(cb, struct wacom_i2c, callbacks);
-	printk(KERN_DEBUG "[E-PEN] %s:\n", __func__);
+	pr_debug("[E-PEN] %s:\n", __func__);
 
 	return wac->pen_prox;
 }
@@ -600,7 +600,7 @@ static void wac_statecheck_work(struct work_struct *work)
 	struct wacom_i2c *wac_i2c =
 	    container_of(work, struct wacom_i2c, wac_statecheck_work.work);
 	buf = COM_QUERY;
-	printk(KERN_DEBUG "[E-PEN] %s\n", __func__);
+	pr_debug("[E-PEN] %s\n", __func__);
 
 	if (firmware_updating_state == true)
 		return;
@@ -874,7 +874,6 @@ static ssize_t epen_sampling_rate_store(struct device *dev,
  fail:
 	return count;
 }
-#else
 static ssize_t epen_rotation_store(struct device *dev,
 				   struct device_attribute *attr,
 				   const char *buf, size_t count)
@@ -1165,7 +1164,6 @@ static DEVICE_ATTR(epen_sampling_rate,
 		   S_IWUSR | S_IWGRP, NULL, epen_sampling_rate_store);
 static DEVICE_ATTR(epen_type,
 		S_IRUGO | S_IWUSR | S_IWGRP, epen_type_show, epen_type_store);
-#else
 /* screen rotation */
 static DEVICE_ATTR(epen_rotation, S_IWUSR | S_IWGRP, NULL, epen_rotation_store);
 /* hand type */
@@ -1207,7 +1205,6 @@ static struct attribute *epen_attributes[] = {
 #if defined(CONFIG_MACH_P4NOTE)
 	&dev_attr_epen_sampling_rate.attr,
 	&dev_attr_epen_type.attr,
-#else
 	&dev_attr_epen_rotation.attr,
 	&dev_attr_epen_hand.attr,
 #endif
