@@ -248,6 +248,9 @@ int cpufreq_lock_by_mali(unsigned int freq)
 /* #if defined(CONFIG_CPU_FREQ) && defined(CONFIG_ARCH_EXYNOS4) */
 	unsigned int level;
 
+	printk(KERN_INFO "%s: not reducing CPU freq to %dMHz\n", __func__, freq);
+	return 0;
+
 	if (atomic_read(&mali_cpufreq_lock) == 1)
 		exynos_cpufreq_lock_free(DVFS_LOCK_ID_G3D);
 
