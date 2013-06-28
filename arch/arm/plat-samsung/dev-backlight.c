@@ -18,6 +18,7 @@
 #include <plat/devs.h>
 #include <plat/gpio-cfg.h>
 #include <plat/backlight.h>
+#include <linux/slab.h>
 
 static int samsung_bl_init(struct device *dev)
 {
