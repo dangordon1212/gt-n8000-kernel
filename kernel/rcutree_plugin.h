@@ -64,7 +64,7 @@ static void __init rcu_bootup_announce_oddness(void)
 
 #ifdef CONFIG_TREE_PREEMPT_RCU
 
-struct rcu_state rcu_preempt_state = RCU_STATE_INITIALIZER(rcu_preempt_state);
+struct rcu_state rcu_preempt_state = RCU_STATE_INITIALIZER(rcu_preempt);
 DEFINE_PER_CPU(struct rcu_data, rcu_preempt_data);
 static struct rcu_state *rcu_state = &rcu_preempt_state;
 
@@ -122,9 +122,11 @@ static void rcu_preempt_qs(int cpu)
 {
 	struct rcu_data *rdp = &per_cpu(rcu_preempt_data, cpu);
 
-	rdp->passed_quiesc_completed = rdp->gpnum - 1;
+	rdp->passed_quiesce_gpnum = rdp->gpnum;
 	barrier();
-	rdp->passed_quiesc = 1;
+	if (rdp->passed_quiesce == 0)
+		trace_rcu_grace_period("rcu_preempt", rdp->gpnum, "cpuqs");
+	rdp->passed_quiesce = 1;
 	current->rcu_read_unlock_special &= ~RCU_READ_UNLOCK_NEED_QS;
 }
 
@@ -190,6 +192,11 @@ static void rcu_preempt_note_context_switch(int cpu)
 			if (rnp->qsmask & rdp->grpmask)
 				rnp->gp_tasks = &t->rcu_node_entry;
 		}
+		trace_rcu_preempt_task(rdp->rsp->name,
+				       t->pid,
+				       (rnp->qsmask & rdp->grpmask)
+				       ? rnp->gpnum
+				       : rnp->gpnum + 1);
 		raw_spin_unlock_irqrestore(&rnp->lock, flags);
 	} else if (t->rcu_read_lock_nesting < 0 &&
 		   t->rcu_read_unlock_special) {
@@ -344,6 +351,8 @@ static noinline void rcu_read_unlock_special(struct task_struct *t)
 		smp_mb(); /* ensure expedited fastpath sees end of RCU c-s. */
 		np = rcu_next_node_entry(t, rnp);
 		list_del_init(&t->rcu_node_entry);
+		trace_rcu_unlock_preempted_task("rcu_preempt",
+						rnp->gpnum, t->pid);
 		if (&t->rcu_node_entry == rnp->gp_tasks)
 			rnp->gp_tasks = np;
 		if (&t->rcu_node_entry == rnp->exp_tasks)
@@ -364,10 +373,17 @@ static noinline void rcu_read_unlock_special(struct task_struct *t)
 		 * we aren't waiting on any CPUs, report the quiescent state.
 		 * Note that rcu_report_unblock_qs_rnp() releases rnp->lock.
 		 */
-		if (empty)
-			raw_spin_unlock_irqrestore(&rnp->lock, flags);
-		else
+		if (!empty && !rcu_preempt_blocked_readers_cgp(rnp)) {
+			trace_rcu_quiescent_state_report("preempt_rcu",
+							 rnp->gpnum,
+							 0, rnp->qsmask,
+							 rnp->level,
+							 rnp->grplo,
+							 rnp->grphi,
+							 !!rnp->gp_tasks);
 			rcu_report_unblock_qs_rnp(rnp, flags);
+		} else
+			raw_spin_unlock_irqrestore(&rnp->lock, flags);
 
 #ifdef CONFIG_RCU_BOOST
 		/* Unboost if we were boosted. */
@@ -466,16 +482,20 @@ static void rcu_print_detail_task_stall(struct rcu_state *rsp)
  * Scan the current list of tasks blocked within RCU read-side critical
  * sections, printing out the tid of each.
  */
-static void rcu_print_task_stall(struct rcu_node *rnp)
+static int rcu_print_task_stall(struct rcu_node *rnp)
 {
 	struct task_struct *t;
+	int ndetected = 0;
 
 	if (!rcu_preempt_blocked_readers_cgp(rnp))
-		return;
+		return 0;
 	t = list_entry(rnp->gp_tasks,
 		       struct task_struct, rcu_node_entry);
-	list_for_each_entry_continue(t, &rnp->blkd_tasks, rcu_node_entry)
+	list_for_each_entry_continue(t, &rnp->blkd_tasks, rcu_node_entry) {
 		printk(" P%d", t->pid);
+		ndetected++;
+	}
+	return ndetected;
 }
 
 /*
@@ -656,18 +676,9 @@ EXPORT_SYMBOL_GPL(call_rcu);
  */
 void synchronize_rcu(void)
 {
-	struct rcu_synchronize rcu;
-
 	if (!rcu_scheduler_active)
 		return;
-
-	init_rcu_head_on_stack(&rcu.head);
-	init_completion(&rcu.completion);
-	/* Will wake me after RCU finished. */
-	call_rcu(&rcu.head, wakeme_after_rcu);
-	/* Wait for it. */
-	wait_for_completion(&rcu.completion);
-	destroy_rcu_head_on_stack(&rcu.head);
+	wait_rcu_gp(call_rcu);
 }
 EXPORT_SYMBOL_GPL(synchronize_rcu);
 
@@ -968,8 +979,9 @@ static void rcu_print_detail_task_stall(struct rcu_state *rsp)
  * Because preemptible RCU does not exist, we never have to check for
  * tasks blocked within RCU read-side critical sections.
  */
-static void rcu_print_task_stall(struct rcu_node *rnp)
+static int rcu_print_task_stall(struct rcu_node *rnp)
 {
+	return 0;
 }
 
 /*
@@ -1489,7 +1501,8 @@ static int rcu_cpu_kthread_should_stop(int cpu)
 
 /*
  * Per-CPU kernel thread that invokes RCU callbacks.  This replaces the
- * earlier RCU softirq.
+ * RCU softirq used in flavors and configurations of RCU that do not
+ * support RCU priority boosting.
  */
 static int rcu_cpu_kthread(void *arg)
 {
